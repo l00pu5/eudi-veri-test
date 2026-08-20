@@ -1,96 +1,102 @@
-# EUDI Wallet - Relying Party (RP) Sandbox & Test-Harness
+# EUDI Wallet - Relying Party (RP) Test Harness & Integration Simulator (ERP-THIS)
 
-Ein entwicklerfreundliches, herstellerneutrales Referenz-Framework zur Implementierung und Erprobung einer **Relying Party (RP) / Verifier** im nationalen **EUDI-Wallet-Ökosystem (eIDAS 2.0)**. 
+A developer-friendly, vendor-neutral reference framework for implementing and testing a **Relying Party / Verifier** within the nation **EUDI Wallet Ecosystem** in accordance with **eIDAS2.0**.
 
-Dieses Repository enthält ein vollständiges Node.js-Backend, ein interaktives HTML5-Demonstrations-Frontend sowie ein automatisiertes Bash-Test-Harness zur Simulation einer Wallet-Präsentation unter Verwendung von **OpenID for Verifiable Presentations (OpenID4VP)** und **IETF SD-JWT VC**.
-
----
-
-## 📦 Komponenten des Projekts
-
-Das Projekt besteht aus vier eng verzahnten, leicht verständlichen Modulen:
-
-1. **`eudi-verifier-helper-v2.js` (Core-Bibliothek):**
-   * Verifiziert empfangene Nachweise fälschungssicher entlang der gesetzlichen **4 Säulen der Verifizierung**.
-   * Basiert ausschließlich auf dem **nativen Node.js `crypto`-Modul** (keine externen `npm`-Abhängigkeiten, ideal für Security-Audits).
-   * Enthält eine voll funktionsfähige, lokale **Erika-Mustermann-Identitätssimulation** für asynchrone Selbsttests.
-
-2. **`eudi-verifier-server.js` (Express REST-API):**
-   * Verwaltet den Lebenszyklus transienter Sitzungen (Session-Handling mit CSRF- und Session-Fixation-Schutz).
-   * Signiert und liefert **JWT-Secured Authorization Requests (JAR - RFC 9101)** aus, welche die **DCQL (Digital Credentials Query Language)** Abfrage enthalten.
-   * Implementiert die offizielle **`direct_post` (HTTP-POST)** Schnittstelle für die asynchrone Datenannahme aus der Wallet.
-
-3. **`index.html` (Tailwind CSS Web-Frontend):**
-   * Bietet eine intuitive Benutzeroberfläche zur Demonstration des Logins mit der Wallet (Cross-Device-Szenario).
-   * Generiert dynamisch den startbereiten `openid4vp://`-QR-Code und führt ein Echtzeit-Status-Polling (AJAX) durch.
-   * Visualisiert Erika Mustermanns verifiziertes Identitätsprofil inklusive eines detaillierten Audit-Berichts.
-
-4. **`eudi-test-harness.sh` (Bash-Testskript / Wallet-Simulator):**
-   * Automatisiert den gesamten Präsentations- und Validierungsfluss auf Kommandozeilenebene.
-   * Simuliert eine EUDI-Wallet-App: Ruft den verschlüsselten JAR-Request ab, erzeugt ein echtes SD-JWT VC mit Holder-Binding-Proof (Key Binding) und einer Wallet Instance Attestation (WIA) und sendet den HTTP-POST an die RP-Schnittstelle.
+This repository contains the corresponding Node.js backend, an interactive HTML5-based demo frontend and an automated Bash script to simulate a credential presentation from a wallet instance towards a relying party (RP) using **OpenID4VP** and **IETF SD-JWT VC**.
 
 ---
 
-## 🛠️ Installationsanleitung
+## 📦 Project Components / Modules
 
-### Voraussetzungen
-* **Node.js** (Version 18.x oder höher empfohlen)
-* **bash** und **curl** (nur für die Test-Harness-Simulation)
+The project consists of 4 related modules:
 
-### 1. Repository klonen & Abhängigkeiten installieren
-Installieren Sie Express und die für den Demobetrieb des Servers benötigten Hilfspakete:
+1. **`eudi-verifier-helper-v2.js` (Core Library):**
+  * verifies incoming credentials in accordance with the **4 pillars of verification**
+  * is based solely on **native Node.js `crypto` module** - no other external dependencies
+  * contains a full-blown mockup **Erika Mustermann identity simulation** for testing purposes
+
+2. **`eudi-verifier-server.js` (Express-based REST API):**
+  * manages the lifecycle of transient sessions
+  * signs and delivers **JAR** (RFC9101) containing **DCQL** queries
+  * implements **`direct_post` (HTTP POST)** interface for accepting wallet data asynchronously
+
+3. **`index.html` (Web Frontend):**
+  * intuitive user interface for demonstrating the cross-device wallet interaction flow
+  * generates QR code with `openid4vp` request
+  * conducts real-time polling of fulfilment status
+  * visualizes mock identity profile / audit report
+
+4. **`eudi-test-harness.sh` (Bash Test Script / Wallet Simulation):**
+  * automates the presentation and validation flow via command line
+  * simulates EUDI wallet interaction: retrieves the JAR request, generates SD-JWT VC with holder binding proof + WIA and posts the data to the RP interface
+
+---
+
+## 🛠️ Installation instructions
+
+### Requirements
+* **Node.js** (>=18.x)
+* **bash** and **curl** (only require for the test harness Bash script)
+
+### Installing dependencies
+Install all required packages:
 ```bash
-# Abhängigkeiten für den Web-Server installieren
 npm install express express-session body-parser cors
 ```
 
+Alternatively, the dependencies can be automatically derived from the `package.json` file:
+```bash
+npm install
+```
+
 ---
 
-## 🚀 Inbetriebnahme und Demonstration (Echtzeit-Durchlauf)
+## 🚀 Operation and demonstration
 
-Führen Sie die folgenden Schritte in separaten Terminal-Fenstern aus, um die vollständige Integrations-Pipeline lokal zu demonstrieren:
+Execute the following steps in a dedicted terminal window to demonstrate the full integration pipeline:
 
-### Schritt 1: Express REST-API Server starten
-Starten Sie das Backend-Schnittstellenmodul. Der Server generiert beim Start automatisch ephemere Schlüsselpaare für den Demo-Betrieb (Trust-Store):
+### Step 1: start the Express REST API server
+Launch the backend module. The server will generate ephemeral key pairs upon start (trust store):
 ```bash
 node eudi-verifier-server.js
 ```
-*Ausgabe:* Der Server läuft lokal unter `http://localhost:3000` und wartet auf eingehende Verbindungen.
+*Output:* Server is running at `http://localhost:3000`
 
-### Schritt 2: Frontend im Browser öffnen
-Öffnen Sie die Datei `index.html` in einem beliebigen Webbrowser.
-1. Klicken Sie auf **"Authentisierung starten"**.
-2. Das System generiert eine eindeutige Transaktions-Nonce und zeigt den dynamischen **QR-Code** für die Wallet an.
-3. Das Frontend wechselt in den Wartezustand und fragt im Hintergrund den Session-Status ab.
+### Step 2: open the frontend in a browser window
+Open the `index.html` file in a web browser. Alternatively, navigate to `http://localhost:3000` as this file is also being served by the backend on the `/` route.
+1. Click on the button **"Authentisierung starten"**.
+2. The system will generate a unique transaction nonce and will display the dynamic **QR code**
+3. Frontend will now switch to waiting mode and will poll the session status continuously in the background
 
-### Schritt 3: Simulation ausführen (Bash Test-Harness)
-Starten Sie den Wallet-Simulator in einem neuen Terminal. Dieses Skript lädt das JAR-Dokument vom Server herunter, signiert die Präsentations-Claims für **Erika Mustermann** und führt den HTTPS-POST an das Callback-Interface aus:
+### Step 3: execute simulation (test harness script)
+Launch the wallet simulator in a new terminal window. The script will obtain the JAR from the server, signs the presentation claim for the mock **Erika Mustermann** ID and will POST the data to the callback interface:
 ```bash
 chmod +x eudi-test-harness.sh
 ./eudi-test-harness.sh
 ```
-*Was passiert im Hintergrund?*
-* Das Skript liest die Transaktionsparameter aus dem QR-Code aus.
-* Es berechnet die Hash-Werte für Erikas Disclosures (Vorname, Nachname, Geburtsdatum, Volljährigkeit, Meldeadresse Köln).
-* Es erzeugt das **Key Binding JWT** und verknüpft es mit der Server-Nonce.
-* Der Callback (`direct_post`) wird an das Express-Backend gesendet.
 
-**Ergebnis:** 
-* Im Terminal des Test-Harnesses sehen Sie die Erfolgsmeldung und das verifizierte JSON-Profil.
-* Das Web-Frontend (`index.html`) schaltet **vollautomatisch in Millisekunden** auf den grünen Erfolgs-Zustand um und zeigt Erika Mustermanns digitalen Ausweis inklusive des Audit-Berichts an.
+*what is happening behind the scenes?*
+* The script will read the transaction parameters from the QR code
+* The script will generate the hash values for the identity disclosures (first name, last name, ...)
+* The script will generated the **Key Binding JWT** and will link it to the server nonce
+* The callack (`direct_post`) will be sent to the Express backend
 
----
-
-## 🔒 Die 4 Säulen der Verifizierung im Code
-
-Die Verifizierung in `eudi-verifier-helper-v2.js` ist streng nach den europäischen Architekturvorgaben des eIDAS 2.0 Frameworks strukturiert:
-
-1. **Säule 1: Aussteller-Authentizität (Issuer Authenticity):** Der Verifizierer prüft die kryptografische Signatur des SD-JWTs gegen die staatliche Trusted List. Er berechnet die SHA-256-Hashes der offengelegten Klartext-Disclosures und vergleicht diese mit den vom Aussteller signierten Hashing-Arrays.
-2. **Säule 2: Gerätebindung (Device & Key Binding):** Verifiziert das *Key-Binding-JWT*, welches mit dem privaten Schlüssel in der sicheren Hardware (WSCD) des Nutzers signiert wurde. Es wird geprüft, ob die Nonce mit der Transaktions-Nonce übereinstimmt (Replay-Schutz) und ob die `client_id` der RP entspricht (Phishing-Schutz).
-3. **Säule 3: Sperrstatus (Revocation Status):** Das Modul parst den `status`-Claim im Token Status List (TSL) Format und bereitet die Prüfung der Bit-Positionen zur Echtzeit-Sperrabfrage vor.
-4. **Säule 4: Wallet-Authentizität (Wallet Validation):** Es verifiziert das *Wallet Instance Attestation (WIA)* JWT des Wallet-Herausgebers, um sicherzustellen, dass es sich um eine echte, unmodifizierte und zertifizierte Wallet-App handelt.
+**Result(s):** 
+* Success message will be displayed in the terminal, alongside the verified JSON profile
+* The frontend will automatically display a success message as a result of the polling succession a will dsiplay the digital ID of the mock identity (incl. the audit report)
 
 ---
 
-## 📄 Lizenz
-Dieses Projekt ist lizenziert unter der Creative Commons Attribution 4.0 International (CC BY 4.0).
+## 🔒 Verification stages
+
+The verification actions in `eudi-verifier-helper-v2.js` are in accordance with the eIDAS 2.0 framework:
+
+1. **Pillar 1: Issuer Authenticity:** The verifier will check the cryptographic signature of the SD-JWT against the federal trust list. It will calculate the SHA-256 hashes of the disclosures and will compare those with the hashing array provided by the issuer.
+2. **Pillar 2: Device & Key Binding:** Verifies the *Key-Binding-JWT* that as been signed with the private key via the WSCD. It will be checked whether the nonce matches the transaction nonce (replay protecion) and whether the `client_id` corresponds to the RP (phishing protection)
+3. **Pillar 3: Revocation Status:** The module will parse the `status` claim in the TSL format and will prepare the bit position checks to facilitate real-time revocation checks.
+4. **Pillar 4: Wallet Validation & Authenticity:** The script verifies the **WIA** JWT of the wallet issuer to assert that the wallet app is genuine.
+
+---
+
+## 📄 License
+This project is licensed under the Creative Commons Attribution 4.0 International (CC BY 4.0) license.
