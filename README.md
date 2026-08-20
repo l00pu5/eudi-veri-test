@@ -10,7 +10,7 @@ This repository provides a local **EUDI Wallet Sandbox** with a Node.js backend 
 
 The project consists of 4 related modules:
 
-1. **`eudi-verifier-helper-v2.js` (Core Library / Presentation Verifier):**
+1. **`eudi-verifier-helper.js` (Core Library / Presentation Verifier):**
   * verifies incoming credentials in accordance with the **4 pillars of verification**
   * is based solely on **native Node.js `crypto` module** - no other external dependencies
   * contains a full-blown mockup **Erika Mustermann identity simulation** for testing purposes
