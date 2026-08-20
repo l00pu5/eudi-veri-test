@@ -64,7 +64,7 @@ node eudi-verifier-server.js
 
 ### Step 2: open the frontend in a browser window
 Open the `index.html` file in a web browser. Alternatively, navigate to `http://localhost:3000` as this file is also being served by the backend on the `/` route.
-1. Click on the button **"Authentisierung starten"**.
+1. Click on the button **"Start authentication"**.
 2. The system will generate a unique transaction nonce and will display the dynamic **QR code**
 3. Frontend will now switch to waiting mode and will poll the session status continuously in the background
 
