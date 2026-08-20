@@ -4,8 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EUDI Wallet - Sicheres Onboarding Portal</title>
-  <!-- Tailwind CSS via CDN -->
+  <title>EUDI Wallet - RP scenario validation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -58,32 +57,31 @@
       </div>
     </div>
 
-    <!-- STATE 1: INITIAL (Bereit zum Starten) -->
+    <!-- STATE 1: INITIAL -->
     <div id="state-initial" class="space-y-6">
       <div class="text-center space-y-2">
-        <h2 class="text-2xl font-bold">Identität verifizieren</h2>
-        <p class="text-sm text-slate-400">Verbinden Sie Ihre Wallet, um die erforderlichen Daten sicher zu übertragen.
-        </p>
+        <h2 class="text-2xl font-bold">Verify identity</h2>
+        <p class="text-sm text-slate-400">Connect your wallt to securely transmit the required data</p>
       </div>
 
       <div class="bg-slate-800/40 border border-slate-700/50 rounded-2xl p-5 space-y-3">
-        <p class="text-xs font-semibold text-sky-400 uppercase tracking-wider">Angeforderte Attribute (DCQL):</p>
+        <p class="text-xs font-semibold text-sky-400 uppercase tracking-wider">Requested idendity attributes (DCQL):</p>
         <div class="grid grid-cols-2 gap-2 text-sm text-slate-300">
           <div class="flex items-center space-x-2">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Vor- & Nachname</span>
+            <span>First & last name</span>
           </div>
           <div class="flex items-center space-x-2">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Geburtsdatum</span>
+            <span>Date of birth</span>
           </div>
           <div class="flex items-center space-x-2">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Altersüberprüfung (+18)</span>
+            <span>Age check (+18)</span>
           </div>
           <div class="flex items-center space-x-2">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-            <span>Meldeadresse</span>
+            <span>Address</span>
           </div>
         </div>
       </div>
@@ -94,12 +92,11 @@
       </button>
     </div>
 
-    <!-- STATE 2: SCANNING (QR-Code & Polling) -->
+    <!-- STATE 2: SCANNING (QR code & polling) -->
     <div id="state-scanning" class="hidden space-y-6 text-center">
       <div class="space-y-2">
-        <h2 class="text-xl font-bold">Mit der Wallet-App scannen</h2>
-        <p class="text-sm text-slate-400">Scannen Sie diesen QR-Code mit Ihrer EUDI National Wallet, um den
-          direct_post-Fluss auszulösen.</p>
+        <h2 class="text-xl font-bold">Scan with the wallet app</h2>
+        <p class="text-sm text-slate-400">Scan this QR code wth your wallet app to trigger the direct_post flow.</p>
       </div>
 
       <!-- QR Code Container -->
@@ -110,14 +107,14 @@
       <!-- Loading Spinner & Status -->
       <div class="flex flex-col items-center justify-center space-y-3">
         <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-sky-400"></div>
-        <div class="text-sm font-medium text-slate-300" id="polling-status">Warte auf Datenübertragung...</div>
-        <p class="text-xs text-slate-500">Kopplung ist kryptografisch an diese Sitzung (Nonce) gebunden.</p>
+        <div class="text-sm font-medium text-slate-300" id="polling-status">Waiting for data transfer to happen...</div>
+        <p class="text-xs text-slate-500">Pairing is bound to this session via nonce.</p>
       </div>
 
-      <button onclick="resetFlow()" class="text-xs text-slate-500 hover:text-slate-300 underline">Abbrechen</button>
+      <button onclick="resetFlow()" class="text-xs text-slate-500 hover:text-slate-300 underline">Cancel</button>
     </div>
 
-    <!-- STATE 3: SUCCESS (Ergebnispräsentation - Erika Mustermann) -->
+    <!-- STATE 3: SUCCESS (result presentation - Erika Mustermann) -->
     <div id="state-success" class="hidden space-y-6">
       <div class="flex items-center space-x-4 bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-2xl">
         <div class="bg-emerald-500/20 p-2 rounded-xl text-emerald-400">
@@ -126,8 +123,8 @@
           </svg>
         </div>
         <div>
-          <h2 class="font-bold text-emerald-400">Verifizierung Erfolgreich</h2>
-          <p class="text-xs text-slate-400">Daten wurden kryptografisch fälschungssicher geprüft.</p>
+          <h2 class="font-bold text-emerald-400">Verification successful</h2>
+          <p class="text-xs text-slate-400">Data & attributes have been checked successfully.</p>
         </div>
       </div>
 
@@ -156,22 +153,22 @@
           <!-- ID Attributes -->
           <div class="col-span-2 space-y-2.5 text-sm">
             <div>
-              <p class="text-[10px] text-slate-500 uppercase font-semibold">Nachname</p>
+              <p class="text-[10px] text-slate-500 uppercase font-semibold">Last name</p>
               <p class="font-bold text-slate-200 text-base" id="claim-family-name">-</p>
             </div>
             <div>
-              <p class="text-[10px] text-slate-500 uppercase font-semibold">Vorname(n)</p>
+              <p class="text-[10px] text-slate-500 uppercase font-semibold">First name(s)</p>
               <p class="font-bold text-slate-200" id="claim-given-name">-</p>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <p class="text-[10px] text-slate-500 uppercase font-semibold">Geburtsdatum</p>
+                <p class="text-[10px] text-slate-500 uppercase font-semibold">Date of birth</p>
                 <p class="font-semibold text-slate-300" id="claim-birthdate">-</p>
               </div>
               <div>
-                <p class="text-[10px] text-slate-500 uppercase font-semibold">Volljährig</p>
+                <p class="text-[10px] text-slate-500 uppercase font-semibold">Adult age</p>
                 <p class="font-semibold text-emerald-400 flex items-center space-x-1">
-                  <span id="claim-is-over-18">Ja</span>
+                  <span id="claim-is-over-18">Yes</span>
                 </p>
               </div>
             </div>
@@ -180,42 +177,41 @@
 
         <!-- Address -->
         <div class="mt-4 pt-4 border-t border-slate-800/80">
-          <p class="text-[10px] text-slate-500 uppercase font-semibold">Anschrift</p>
+          <p class="text-[10px] text-slate-500 uppercase font-semibold">Address</p>
           <p class="text-xs text-slate-300" id="claim-address">-</p>
         </div>
       </div>
 
       <!-- Technical Audit Dashboard -->
       <div class="bg-slate-950/40 rounded-2xl p-4 border border-slate-800 space-y-3">
-        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Kryptografischer Audit-Bericht (4
-          Säulen)</p>
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Audit report</p>
         <div class="space-y-2 text-xs">
           <div class="flex items-center justify-between py-1 border-b border-slate-900/30">
-            <span class="text-slate-400">Säule 1: Aussteller-Integrität (Signature)</span>
-            <span class="text-emerald-400 font-semibold">Aktiv & Geprüft</span>
+            <span class="text-slate-400">Pillar 1: Signature Integrity</span>
+            <span class="text-emerald-400 font-semibold">Active & verified</span>
           </div>
           <div class="flex items-center justify-between py-1 border-b border-slate-900/30">
-            <span class="text-slate-400">Säule 2: Hardwarebindung (Key Binding)</span>
+            <span class="text-slate-400">Pillar 2: Key Binding</span>
             <span class="text-emerald-400 font-semibold">WSCD Secure Element</span>
           </div>
           <div class="flex items-center justify-between py-1 border-b border-slate-900/30">
-            <span class="text-slate-400">Säule 3: Sperrungs-Abgleich (Status List)</span>
-            <span class="text-emerald-400 font-semibold">Gültig (Bit 0)</span>
+            <span class="text-slate-400">Pillar 3: Status List</span>
+            <span class="text-emerald-400 font-semibold">Valid (Bit 0)</span>
           </div>
           <div class="flex items-center justify-between py-1">
-            <span class="text-slate-400">Säule 4: App-Attestierung (WIA)</span>
-            <span class="text-emerald-400 font-semibold">Wallet verifiziert</span>
+            <span class="text-slate-400">Pillar 4: WIA</span>
+            <span class="text-emerald-400 font-semibold">Wallet has been verified</span>
           </div>
         </div>
       </div>
 
       <button onclick="resetFlow()"
         class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-2xl transition duration-200">
-        Neue Prüfung starten
+        Start new check
       </button>
     </div>
 
-    <!-- STATE 4: FAILED (Verifizierungs-Fehlgeschlagen) -->
+    <!-- STATE 4: FAILED -->
     <div id="state-failed" class="hidden space-y-6">
       <div class="flex items-center space-x-4 bg-red-500/10 border border-red-500/30 p-4 rounded-2xl">
         <div class="bg-red-500/20 p-2 rounded-xl text-red-400">
@@ -226,36 +222,36 @@
           </svg>
         </div>
         <div>
-          <h2 class="font-bold text-red-400">Verifizierung Fehlgeschlagen</h2>
-          <p class="text-xs text-slate-400">Kryptografische Signatur- oder Bindungsprüfung ist ungültig.</p>
+          <h2 class="font-bold text-red-400">Verification failed</h2>
+          <p class="text-xs text-slate-400">Cryptographic signature & integrity is invalid.</p>
         </div>
       </div>
 
       <div class="bg-slate-950/40 p-4 rounded-2xl border border-slate-800/80">
-        <p class="text-xs font-semibold text-red-400 mb-2">Fehlerdetails (Debug-Log):</p>
+        <p class="text-xs font-semibold text-red-400 mb-2">Error details (debug information):</p>
         <div id="failed-errors" class="text-xs text-slate-400 space-y-1 font-mono leading-relaxed">
-          <!-- Fehlermeldungen dynamisch eingefügt -->
+          <!-- Error messages will be added dynamically here -->
         </div>
       </div>
 
       <button onclick="resetFlow()"
         class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-2xl transition duration-200">
-        Zurück zur Startseite
+        Back to landing page
       </button>
     </div>
 
   </div>
 
-  <!-- Frontend Steuerung (Vanilla JS & AJAX) -->
+  <!-- Frontend logic -->
   <script>
-    // Konfiguration: Passen Sie die Backend-API Adresse hier an
+    // edit backend location when appropriate
     const API_BASE = 'http://localhost:3000';
 
     let pollInterval = null;
     let activeSessionId = null;
 
     /**
-     * Schaltet die Anzeige der einzelnen Zustände (Szenen) um
+     * Triggers the scenes / states individually
      */
     function showState(stateName) {
       document.getElementById('state-initial').classList.add('hidden');
@@ -267,7 +263,7 @@
     }
 
     /**
-     * Schritt 1: Initialisierung über Express-Backend (GET /api/presentation/initiate)
+     * Step 1: Intiation via Express backend (GET /api/presentation/initiate)
      */
     async function startVerification() {
       try {
@@ -277,25 +273,25 @@
         if (data.success) {
           activeSessionId = data.sessionId;
 
-          // 1. QR-Code-URL mit freiem QR-Generator zusammensetzen
+          // 1. QR code URL composition
           const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.qrCodeUrl)}`;
           document.getElementById('qr-code-img').src = qrImageUrl;
 
           showState('scanning');
 
-          // 2. Automatisches AJAX Status-Polling starten (alle 2 Sekunden)
+          // 2. Continuous AJAX status polling (one poll per 2 seconds)
           pollInterval = setInterval(() => checkStatus(data.pollEndpoint), 2000);
         } else {
-          alert('Fehler bei der Initialisierung des Servers.');
+          alert('Error during server initialization.');
         }
       } catch (err) {
-        console.error('Verbindungsfehler zum Backend:', err);
-        alert('Verbindung zum API-Server konnte nicht aufgebaut werden.');
+        console.error('Connection error towards backend:', err);
+        alert('Connection to API server could not be established.');
       }
     }
 
     /**
-     * Schritt 2: Status abfragen (GET /api/presentation/status?sid=...)
+     * Step 2: retrieve status (GET /api/presentation/status?sid=...)
      */
     async function checkStatus(pollEndpoint) {
       try {
@@ -304,16 +300,16 @@
 
         if (data.success) {
           if (data.status === 'SUCCESS') {
-            // Polling stoppen
+            // stop polling
             clearInterval(pollInterval);
 
-            // Claims in UI eintragen (Erika-Muster-Simulation)
+            // enter claims in UI (Erika Mustermann mock ID)
             document.getElementById('claim-given-name').innerText = data.claims.given_name;
             document.getElementById('claim-family-name').innerText = data.claims.family_name;
             document.getElementById('claim-birthdate').innerText = data.claims.birthdate;
             document.getElementById('claim-is-over-18').innerText = data.claims.is_over_18 ? 'Ja' : 'Nein';
 
-            // Adresse zusammensetzen
+            // compile address string
             const adr = data.claims.address;
             const adrStr = `${adr.street_address}, ${adr.postal_code} ${adr.locality}, ${adr.country}`;
             document.getElementById('claim-address').innerText = adrStr;
@@ -322,7 +318,7 @@
           } else if (data.status === 'FAILED') {
             clearInterval(pollInterval);
 
-            // Fehlerliste befüllen
+            // fill error list
             const errorDiv = document.getElementById('failed-errors');
             errorDiv.innerHTML = '';
             data.errors.forEach(err => {
@@ -338,7 +334,7 @@
     }
 
     /**
-     * Zurücksetzen der Session und UI
+     * Reset session and UI state
      */
     function resetFlow() {
       if (pollInterval) {
