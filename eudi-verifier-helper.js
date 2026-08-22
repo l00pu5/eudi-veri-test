@@ -1,12 +1,10 @@
 /**
- * EUDI Wallet - Relying Party (RP) Verification Helper - Version 2.0
+ * EUDI Wallet - Relying Party (RP) Verification Helper
  * 
- * Diese überarbeitete Version implementiert die vollständige Simulation der 
- * "Erika Mustermann"-Identitäts-Payload gemäß dem deutschen Bundes-Muster-Datensatz
- * für Personenidentifizierungsdaten (PID).
+ * This verifier implements a full simulation of the "Erika Mustermann"
+ * mock identity for PID.
  * 
- * Es parst und verifiziert ein SD-JWT VC und führt eine 4-Säulen-Validierung
- * ohne externe Bibliotheken (nur unter Nutzung des nativen 'crypto'-Moduls) durch.
+ * It parses and verifies the PID as SD-JWT VC.
  * 
  * @module EUDIVerifier
  * @version 2.0.0
@@ -16,16 +14,16 @@ const crypto = require('crypto');
 
 class EUDIVerifier {
   /**
-   * Erstellt eine neue Instanz des Verifizierers.
-   * @param {Object} config - Konfiguration der Relying Party
-   * @param {string} config.clientId - Die registrierte Client-ID der RP
-   * @param {string} config.expectedNonce - Die für diese Transaktion generierte Einmal-Nonce (Replay-Schutz)
-   * @param {Array<string>} config.trustedIssuerKeys - Bekannte öffentliche Schlüssel vertrauenswürdiger Aussteller (PEM-Format)
-   * @param {Array<string>} config.trustedWalletKeys - Bekannte öffentliche Schlüssel autorisierter Wallet-Provider (WIA-Prüfung)
+   * Creates a new instance of the verifier module
+   * @param {Object} config - configuration of the mock relying party (RP)
+   * @param {string} config.clientId - registered client ID of the RP
+   * @param {string} config.expectedNonce - transaction nonce for this session (replay protection)
+   * @param {Array<string>} config.trustedIssuerKeys - known public keys of truted issuers (PEM)
+   * @param {Array<string>} config.trustedWalletKeys - known publoc keys of trusted wallet providers (WIA check)
    */
   constructor(config) {
     if (!config.clientId || !config.expectedNonce) {
-      throw new Error('Konfigurationsfehler: clientId und expectedNonce sind zwingend erforderlich.');
+      throw new Error('Configuration error: clientId and expectedNonce are required.');
     }
     this.clientId = config.clientId;
     this.expectedNonce = config.expectedNonce;
@@ -34,12 +32,11 @@ class EUDIVerifier {
   }
 
   /**
-   * Hauptmethode zur Verifizierung eines empfangenen VP-Tokens.
-   * Führt die Validierung schrittweise über alle 4 Säulen durch.
+   * Verification of a VP token
    * 
-   * @param {Object} vpToken - Das vom Wallet übermittelte vp_token (JSON-Struktur)
-   * @param {string} wiaToken - Die optionale Wallet Instance Attestation (WIA) zur Wallet-Verifizierung
-   * @returns {Promise<Object>} Verifizierungsergebnis mit extrahierten, verifizierten Attributen
+   * @param {Object} vpToken - vp_token that has been transmitted from the wallet (JSON)
+   * @param {string} wiaToken - option WIA for wallet verification
+   * @returns {Promise<Object>} verification result with extracted & verified attributes
    */
   async verifyPresentation(vpToken, wiaToken = null) {
     const result = {
@@ -55,11 +52,11 @@ class EUDIVerifier {
     };
 
     try {
-      // Hilfsvariable zur Extraktion des Credentials
-      // In OpenID4VP ist das vp_token ein JSON-Objekt, das Credentials unter ihren DCQL-IDs listet
+      // aux variable used for credential extraction
+      // vp_token = JSON object listing credentials under their respectinve DCQL IDs
       const credentialId = Object.keys(vpToken)[0];
       if (!credentialId) {
-        throw new Error('Ungültiges vp_token-Format: Keine Credential-ID gefunden.');
+        throw new Error('Invalid vp_token format: credential ID not found.');
       }
 
       let rawCredential = vpToken[credentialId];
@@ -67,14 +64,14 @@ class EUDIVerifier {
         rawCredential = rawCredential[0];
       }
 
-      // Analyse des Typs (SD-JWT VC oder ISO mdoc)
+      // checking document type (SD-JWT VC or ISO mdoc)
       const isSdJwt = typeof rawCredential === 'string' && rawCredential.includes('.');
 
       if (isSdJwt) {
         await this._verifySdJwtFlow(rawCredential, wiaToken, result);
       } else {
-        // Platzhalter für ISO mdoc (CBOR/COSE-basiert)
-        throw new Error('ISO mdoc (mso_mdoc) wird in diesem nativen JS-Helper nur strukturell unterstützt. Bitte nutzen Sie eine CBOR-Bibliothek.');
+        // placeholder for ISO mdoc (CBOR/COSE-based)
+        throw new Error('ISO mdoc (mso_mdoc) not structurally supported.');
       }
 
       if (result.errors.length === 0) {
@@ -88,78 +85,78 @@ class EUDIVerifier {
   }
 
   /**
-   * Interner Validierungs-Flow für SD-JWT VCs (Selective Disclosure JWTs)
+   * validation flow for SD-JWT VCs (Selective Disclosure JWTs)
    */
   async _verifySdJwtFlow(sdJwtString, wiaToken, result) {
-    // SD-JWT besteht aus: JWT-Payload ~ Disclosures... ~ Key Binding JWT (optional)
+    // SD-JWT composition: JWT payload ~ Disclosures... ~ Key Binding JWT (optional)
     const parts = sdJwtString.split('~');
     const credentialJwt = parts[0];
-    const keyBindingJwt = parts[parts.length - 1]; // Letzter Teil bei Key Binding
+    const keyBindingJwt = parts[parts.length - 1]; // last part if key binding is used
     const disclosures = parts.slice(1, parts.length - 1);
 
-    // 1. Dekodieren des Haupt-Credentials
+    // 1. decoding main credential
     const parsedCred = this._decodeJwt(credentialJwt);
 
-    // ── SÄULE 1: AUSSTELLER-AUTHENTIZITÄT & INTEGRITÄT ──────────────────────────
+    // ── PILLAR 1: VERIFICATION OF ISSUER AUTHENTICITY & INTEGRITY ──────────────────────────
     try {
       this._verifyIssuerSignature(credentialJwt, parsedCred.header);
       result.verifiedPillars.issuerAuthenticity = true;
     } catch (err) {
-      result.errors.push(`Säule 1 (Issuer Authenticity) fehlgeschlagen: ${err.message}`);
+      result.errors.push(`Pillar 1 (Issuer Authenticity) failed: ${err.message}`);
       return;
     }
 
-    // Offenlegen und Extrahieren der selektiv freigegebenen Attribute (Disclosures)
+    // Disclosing and extracting the selectively discolosed attributes
     const disclosedClaims = this._extractDisclosures(disclosures);
     result.claims = { ...parsedCred.payload, ...disclosedClaims };
-    // Bereinigen von SD-JWT-Metadaten aus den Result-Claims
+    // clean-up of SD JWT metadata from the result claim
     delete result.claims._sd;
     delete result.claims._sd_alg;
 
-    // ── SÄULE 2: GERÄTEBINDUNG (PROOF OF POSSESSION) ──────────────────────────
+    // ── PILLAR 2: DEVICE BINDING (PROOF OF POSSESSION) ──────────────────────────
     try {
       if (!keyBindingJwt || keyBindingJwt.trim() === '') {
-        throw new Error('Kein Key-Binding-JWT im SD-JWT-Token vorhanden, obwohl Gerätebindung gefordert ist.');
+        throw new Error('No key binding JWT found in SD-JWT token, although device binding is requested.');
       }
       this._verifyDeviceBinding(keyBindingJwt, result.claims.cnf?.jwk);
       result.verifiedPillars.deviceBinding = true;
     } catch (err) {
-      result.errors.push(`Säule 2 (Device Binding) fehlgeschlagen: ${err.message}`);
+      result.errors.push(`Pillar 2 (Device Binding) failed: ${err.message}`);
     }
 
-    // ── SÄULE 3: REVERZIERUNG & STATUSPRÜFUNG ─────────────────────────────────
+    // ── PILLAR 3: RE-VERIFICATION & STATUS CHECK ─────────────────────────────────
     try {
       await this._checkRevocationStatus(result.claims.status);
       result.verifiedPillars.revocationStatus = true;
     } catch (err) {
-      result.errors.push(`Säule 3 (Revocation Status) fehlgeschlagen: ${err.message}`);
+      result.errors.push(`Pillar 3 (Revocation Status) failed: ${err.message}`);
     }
 
-    // ── SÄULE 4: WALLET-APP VALIDIERUNG (WIA/WTE) ──────────────────────────────
+    // ── PILLAR 4: WALLET APP VALIDATION (WIA/WTE) ──────────────────────────────
     if (wiaToken) {
       try {
         this._validateWalletInstance(wiaToken);
         result.verifiedPillars.walletValidation = true;
       } catch (err) {
-        result.errors.push(`Säule 4 (Wallet Validation) fehlgeschlagen: ${err.message}`);
+        result.errors.push(`Pillar 4 (Wallet Validation) failed: ${err.message}`);
       }
     } else {
-      result.errors.push('Säule 4 Warnung: WIA-Token nicht übermittelt. Wallet-Authentizität konnte nicht unabhängig geprüft werden.');
+      result.errors.push('Pillar 4 warning: WIA token not transmitted. Unable to check wallet authenticity.');
     }
   }
 
   /**
-   * Säule 1: Verifiziert die digitale Signatur des Ausstellers (Issuer)
+   * Pillar 1: verifies the issuer's digital signature
    */
   _verifyIssuerSignature(jwtString, header) {
     const jwtParts = jwtString.split('.');
     if (jwtParts[2] === 'simulated_government_issuer_signature' || jwtParts[2] === 'simulated_issuer_signature') {
-      console.log('[EUDI Verifier] Säule 1 Bypass: Simulierter staatlicher Ausweis für lokale Demo-Zwecke akzeptiert.');
+      console.log('[EUDI Verifier] Pillar 1 by-pass: accepting simuölated federal PID for demo purposes.');
       return true;
     }
 
     if (this.trustedIssuerKeys.length === 0) {
-      throw new Error('Keine vertrauenswürdigen Aussteller-Schlüssel (trustedIssuerKeys) konfiguriert. Verifizierung unmöglich.');
+      throw new Error('No trusted issuer keys (trustedIssuerKeys) configured. Verification not possible.');
     }
 
     const dataToVerify = `${jwtParts[0]}.${jwtParts[1]}`;
@@ -180,47 +177,47 @@ class EUDIVerifier {
     }
 
     if (!isVerified) {
-      throw new Error(`Signaturprüfung fehlgeschlagen. Der Ausstellerschlüssel ist unbekannt oder ungültig. ${lastError ? lastError.message : ''}`);
+      throw new Error(`Signature validation failed. Issuer key is unknown or invalid. ${lastError ? lastError.message : ''}`);
     }
   }
 
   /**
-   * Säule 2: Verifiziert das Key Binding (Gerätebindung des Nutzers via Hardware-Schlüssel)
+   * Pillar 2: verifies the key binding (device binding via hardware key)
    */
   _verifyDeviceBinding(kbJwtString, holderJwk) {
     if (!holderJwk) {
-      throw new Error('Der Nachweis enthält keinen öffentlichen Nutzerschlüssel (cnf.jwk). Gerätebindung kann nicht geprüft werden.');
+      throw new Error('Proof does not cotnain public user key (cnf.jwk). Device binding cannot be verified.');
     }
 
     const kbParts = kbJwtString.split('.');
     if (kbParts.length !== 3) {
-      throw new Error('Ungültiges Key-Binding-JWT-Format.');
+      throw new Error('Invalid key binding JWT format.');
     }
 
     const kbPayload = JSON.parse(Buffer.from(kbParts[1], 'base64url').toString('utf8'));
     const kbHeader = JSON.parse(Buffer.from(kbParts[0], 'base64url').toString('utf8'));
 
-    // 1. Replay-Schutz: Entspricht die Nonce unserer Transaktions-Nonce?
+    // 1. replay protection: does none match the transaction nonce?
     if (kbPayload.nonce !== this.expectedNonce) {
-      throw new Error(`Replay-Angriff erkannt! Erwartete Nonce: ${this.expectedNonce}, erhalten: ${kbPayload.nonce}`);
+      throw new Error(`Possible replay attach identified! Expected nonce: ${this.expectedNonce}, actual: ${kbPayload.nonce}`);
     }
 
-    // 2. Client-Bindung: Stimmt die Empfänger-ID mit unserer Client-ID überein?
+    // 2. client gindung: does the recipient ID match with the client ID?
     if (kbPayload.aud !== this.clientId) {
-      throw new Error(`Falscher Empfänger! Erwartete Client-ID (aud): ${this.clientId}, erhalten: ${kbPayload.aud}`);
+      throw new Error(`Incorrect recipient! Expected client ID (aud): ${this.clientId}, actual: ${kbPayload.aud}`);
     }
 
-    // 3. Typ-Prüfung: Ist das KB-JWT vom Typ "openid4vci-proof+jwt" oder "kb+jwt"?
+    // 3. type check: is the KB JWT of type "openid4vci-proof+jwt" or "kb+jwt"?
     if (kbHeader.typ !== 'openid4vci-proof+jwt' && kbHeader.typ !== 'kb+jwt' && kbHeader.typ !== 'openid4vp-proof+jwt') {
-      throw new Error(`Ungültiger KB-JWT Typ im Header: ${kbHeader.typ}`);
+      throw new Error(`Invalid KB JWT type in header: ${kbHeader.typ}`);
     }
 
     if (kbParts[2] === 'simulated_device_secure_element_signature') {
-      console.log('[EUDI Verifier] Säule 2 Bypass: Simulierte Gerätebindung für lokale Demo-Zwecke akzeptiert.');
+      console.log('[EUDI Verifier] Pillar 2 by-pass: simulated device binding accepted for local demo purposes.');
       return true;
     }
 
-    // 4. Kryptografische Signaturprüfung des Nutzers gegen dessen im Credential gebundenen JWK
+    // 4. cryptographic signature verification of the user against the credential JWK
     try {
       const pubKey = crypto.createPublicKey({
         key: holderJwk,
@@ -235,15 +232,15 @@ class EUDIVerifier {
 
       const isVerified = verify.verify(pubKey, signature);
       if (!isVerified) {
-        throw new Error('Die Signatur des Key-Binding-JWTs stimmt nicht mit dem gebundenen Schlüssel (cnf.jwk) überein.');
+        throw new Error('The signature of the key binding JWT does not match with the binding key (cnf.jwk).');
       }
     } catch (err) {
-      throw new Error(`Fehler bei kryptografischer Geräteprüfung: ${err.message}`);
+      throw new Error(`Error during cryptographic device verification: ${err.message}`);
     }
   }
 
   /**
-   * Säule 3: Prüft den Sperrstatus des Credentials (asynchron)
+   * Pillar 3: checks the lock status of the credential
    */
   async _checkRevocationStatus(statusClaim) {
     if (!statusClaim) {
@@ -252,48 +249,48 @@ class EUDIVerifier {
 
     const statusList = statusClaim.status_list;
     if (!statusList || typeof statusList.idx !== 'number' || !statusList.uri) {
-      throw new Error('Sperrstatus-Claim ist syntaktisch ungültig.');
+      throw new Error('Lock status claim is syntactically not correct / invalid.');
     }
 
-    console.log(`[Status List Fetch] Rufe Status-Bitliste ab unter URI: ${statusList.uri}`);
+    console.log(`[Status List Fetch] fetching status bit list from URI: ${statusList.uri}`);
 
-    // Simulation des Bit-Checks: 0 = Gültig, 1 = Gesperrt
-    const simulatedBitValue = 0;
+    // simulation of bot check: 0 = valid, 1 = locked
+    const simulatedBitValue = 0; // enforcing bit value ot "valid"
 
     if (simulatedBitValue !== 0) {
-      throw new Error(`Das digitale Zertifikat wurde vom Aussteller gesperrt (Bit-Wert an Position ${statusList.idx} ist ungleich 0).`);
+      throw new Error(`The digital certificate has been locked by the issuer (bit at position ${statusList.idx} is != 0).`);
     }
 
     return true;
   }
 
   /**
-   * Säule 4: Validiert die Echtheit der anfragenden Wallet-Instanz (WIA/WTE)
+   * Pillar 4: validates the authenticity of the walle instance (WIA/WTE)
    */
   _validateWalletInstance(wiaTokenString) {
     if (this.trustedWalletKeys.length === 0) {
-      throw new Error('Keine vertrauenswürdigen Wallet-Provider-Schlüssel konfiguriert.');
+      throw new Error('No trusted wallet provider key is configured.');
     }
 
     const wiaParts = wiaTokenString.split('.');
     if (wiaParts.length !== 3) {
-      throw new Error('Ungültiges Wallet Instance Attestation (WIA) JWT-Format.');
+      throw new Error('Invalid WIA JWT format.');
     }
 
     const wiaHeader = JSON.parse(Buffer.from(wiaParts[0], 'base64url').toString('utf8'));
     const wiaPayload = JSON.parse(Buffer.from(wiaParts[1], 'base64url').toString('utf8'));
 
-    // Typenprüfung gemäß eIDAS-WIA Profil
+    // type check in accordance with eIDAS WIA profile
     if (wiaHeader.typ !== 'oauth-client-attestation+jwt') {
-      throw new Error(`Ungültiger WIA-Typ im Header: ${wiaHeader.typ}`);
+      throw new Error(`Invalid WIA type in header: ${wiaHeader.typ}`);
     }
 
     if (wiaParts[2] === 'simulated_wallet_manufacturer_signature') {
-      console.log('[EUDI Verifier] Säule 4 Bypass: Simulierte Wallet-Attestierung für lokale Demo-Zwecke akzeptiert.');
+      console.log('[EUDI Verifier] Pillar 4 by-pass: simulated wallet attestation accepted for local demo purposes.');
       return true;
     }
 
-    // Signaturprüfung des WIA-Tokens gegen den Trusted Store der Wallet-Provider
+    // signature check of the WIA token against the trusted store of the wallet provider
     const dataToVerify = `${wiaParts[0]}.${wiaParts[1]}`;
     const signature = Buffer.from(wiaParts[2], 'base64url');
 
@@ -305,25 +302,25 @@ class EUDIVerifier {
         isVerified = verify.verify(pemKey, signature);
         if (isVerified) break;
       } catch (err) {
-        // Schlüssel durchprobieren
+        // try keys
       }
     }
 
     if (!isVerified) {
-      throw new Error('Die Wallet Instance Attestation (WIA) wurde mit einem unbekannten oder ungültigen Schlüssel signiert.');
+      throw new Error('WIA has been signed with an unknown or invalid key.');
     }
 
-    // Überprüfung der Gültigkeit
+    // validity check
     const now = Math.floor(Date.now() / 1000);
     if (wiaPayload.exp && now > wiaPayload.exp) {
-      throw new Error('Die Wallet Instance Attestation (WIA) ist abgelaufen.');
+      throw new Error('WIA has expired.');
     }
 
-    console.log(`[WIA Validierung] Wallet-Echtheit erfolgreich bestätigt für Wallet: ${wiaPayload.wallet_name || 'Unbekannt'}`);
+    console.log(`[WIA Validation] wallet authenticity confirmed: ${wiaPayload.wallet_name || 'Unknown'}`);
   }
 
   /**
-   * Hilfsmethode: Dekodieren und Extrahieren von SD-JWT Disclosures (Klartext-Enthüllungen)
+   * Decoding and extraction of SD-JWT disclosures
    */
   _extractDisclosures(disclosureStrings) {
     const claims = {};
@@ -332,7 +329,7 @@ class EUDIVerifier {
       if (!disclosure) continue;
 
       try {
-        // Jede Offenlegung ist ein base64url-kodiertes JSON-Array: [Salt, ClaimName, ClaimValue]
+        // each disclosure is a base64url-encoded JSON array: [Salt, ClaimName, ClaimValue]
         const decodedJson = Buffer.from(disclosure, 'base64url').toString('utf8');
         const array = JSON.parse(decodedJson);
 
@@ -342,7 +339,7 @@ class EUDIVerifier {
           claims[claimName] = claimValue;
         }
       } catch (err) {
-        // Fehlerhafte oder unvollständige Disclosure ignorieren
+        // ignore incorect or invalid disclosures
       }
     }
 
@@ -350,12 +347,12 @@ class EUDIVerifier {
   }
 
   /**
-   * Hilfsmethode: JWT dekodieren ohne Signaturprüfung
+   * JWT decoding wthout signature check
    */
   _decodeJwt(jwtString) {
     const parts = jwtString.split('.');
     if (parts.length < 2) {
-      throw new Error('Ungültiges JWT-Format.');
+      throw new Error('Invalid JWT format.');
     }
 
     const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
@@ -366,14 +363,14 @@ class EUDIVerifier {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AUSFÜHRBARES BEISPIEL UND END-TO-END DEMO-TEST MIT ERIKA MUSTERMANN PAYLOAD
+// EXAMPLE / END-TO-END DEMO WITH ERIKA MUSTERMANN PAYLOAD
 // ─────────────────────────────────────────────────────────────────────────────
 
 if (require.main === module) {
   console.log('=== START EUDI WALLET ERIKA MUSTERMANN PAYLOAD SIMULATION ===\n');
 
   async function runDemo() {
-    // 1. Schlüsselpaare für Aussteller, Wallet und Nutzer (Holder) erstellen
+    // 1. generate key pairs for issuer, wallet and holder
     const issuerKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
     const walletKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
     const holderKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
@@ -383,7 +380,7 @@ if (require.main === module) {
 
     const holderJwk = holderKeys.publicKey.export({ format: 'jwk' });
 
-    // 2. Erstellung einer Mock-WIA (Wallet Instance Attestation)
+    // 2. generating mock WIA (Wallet Instance Attestation)
     const wiaHeader = { alg: 'ES256', typ: 'oauth-client-attestation+jwt' };
     const wiaPayload = {
       iss: 'https://wallet-provider.example.com',
@@ -398,8 +395,8 @@ if (require.main === module) {
     const wiaSignature = wiaSign.sign(walletKeys.privateKey).toString('base64url');
     const wiaToken = `${wiaData}.${wiaSignature}`;
 
-    // 3. Erstellung des Haupt-Credentials (SD-JWT) für "Erika Mustermann"
-    // Disclosures für selektive Offenlegung gemäß deutschem PID-Datensatz:
+    // 3. generating main credential (SD-JWT) for "Erika Mustermann"
+    // Disclosures in accordance with DE PID data set:
     const disclosures = [
       Buffer.from(JSON.stringify(['saltGName', 'given_name', 'Erika'])).toString('base64url'),
       Buffer.from(JSON.stringify(['saltFName', 'family_name', 'Mustermann'])).toString('base64url'),
@@ -414,7 +411,7 @@ if (require.main === module) {
       }])).toString('base64url')
     ];
 
-    // Hashes der Disclosures für das Haupt-JWT berechnen
+    // calculate disclosure hashes for main JWT
     const hash = (data) => crypto.createHash('sha256').update(data).digest().toString('base64url');
     const sdHeader = { alg: 'ES256', typ: 'vc+sd-jwt' };
     const sdPayload = {
@@ -423,7 +420,7 @@ if (require.main === module) {
       _sd_alg: 'sha-256',
       _sd: disclosures.map(hash),
       cnf: {
-        jwk: holderJwk // Kryptografische Gerätebindung (Säule 2)
+        jwk: holderJwk // cryptographic device binding
       },
       status: {
         status_list: {
@@ -439,9 +436,9 @@ if (require.main === module) {
     const sdSignature = sdSign.sign(issuerKeys.privateKey).toString('base64url');
     const credentialJwt = `${sdData}.${sdSignature}`;
 
-    // 4. Erstellung des Key-Binding-JWTs (Säule 2)
+    // 4. generating the key binding JWT 
     const rpClientId = 'x509_san_dns:client.example.org';
-    const transactionNonce = 'n-0S6_WzA2Mj'; // Entspricht dem in den Specs definierten Wert
+    const transactionNonce = 'n-0S6_WzA2Mj'; // taken from specs
 
     const kbHeader = { alg: 'ES256', typ: 'openid4vci-proof+jwt' };
     const kbPayload = {
@@ -456,10 +453,10 @@ if (require.main === module) {
     const kbSignature = kbSign.sign(holderKeys.privateKey).toString('base64url');
     const kbJwt = `${kbData}.${kbSignature}`;
 
-    // 5. Zusammensetzen des vollständigen SD-JWT-Strings inkl. aller Erika-Disclosures
+    // 5. composing the complete SD-JWT string incl. disclosures
     const fullSdJwt = `${credentialJwt}~${disclosures.join('~')}~${kbJwt}`;
 
-    // 6. Instanziierung des Verifizierers und Ausführen der End-to-End-Verifizierung
+    // 6. instantiating the verifier and executing the verification flow
     const verifier = new EUDIVerifier({
       clientId: rpClientId,
       expectedNonce: transactionNonce,
@@ -471,18 +468,18 @@ if (require.main === module) {
       "my_identity_credential": fullSdJwt
     };
 
-    console.log('Führe 4-Säulen-Validierung für Erika Mustermann durch...\n');
+    console.log('Executing security validation...\n');
     const verificationResult = await verifier.verifyPresentation(mockVpToken, wiaToken);
 
-    console.log('ERGEBNIS DER PRÜFUNG (VERIFICATION RESULT):');
+    console.log('VERIFICATION RESULT:');
     console.log(JSON.stringify(verificationResult, null, 2));
 
     if (verificationResult.success) {
-      console.log('\n✅ SIMULATION ERFOLGREICH! Alle 4 Säulen wurden verifiziert.');
-      console.log('Extrahierte, authentische claims:');
+      console.log('\n✅ SIMULATION SUCCESSFUL! All verification checks have passed.');
+      console.log('Authentic claims:');
       console.log(JSON.stringify(verificationResult.claims, null, 2));
     } else {
-      console.error('\n❌ SIMULATION FEHLGESCHLAGEN.');
+      console.error('\n❌ SIMULATION FAILED.');
     }
   }
 
