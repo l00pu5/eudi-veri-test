@@ -32,7 +32,7 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-# -----------------------------------------------------------------------------\n# SCHRITT 1: SESSION INITIALIZATION\n# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\n# STEP 1: SESSION INITIALIZATION\n# -----------------------------------------------------------------------------
 echo -e "\n${COLOR_INFO}[Step 1/4] Initiating new presentation session on the server...${COLOR_RESET}"
 INIT_RESPONSE=$(curl -s "${API_BASE}/api/presentation/initiate")
 
@@ -44,7 +44,7 @@ echo -e "${COLOR_SUCCESS}✔ Session has been initiated successfully!${COLOR_RES
 echo "  - Session ID (state): $SESSION_ID"
 echo "  - QR code data:       $QR_CODE_URL"
 
-# -----------------------------------------------------------------------------\n# SCHRITT 2: GATHER REQUEST OBJECT METADATA (JAR)\n# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\n# STEP 2: GATHER REQUEST OBJECT METADATA (JAR)\n# -----------------------------------------------------------------------------
 echo -e "\n${COLOR_INFO}[Step 2/4] Simulating wallet: retrieving request object (JAR) via request_uri...${COLOR_RESET}"
 # parsing request_uri from the openid4vp URI
 REQUEST_URI=$(echo "$QR_CODE_URL" | grep -o 'request_uri=[^&]*' | cut -d'=' -f2 | python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read().strip()))")
@@ -71,7 +71,7 @@ except Exception:
 echo -e "${COLOR_SUCCESS}✔ Request Object (JAR) has been sucessfully retrieved and decoded!${COLOR_RESET}"
 echo "  - Extracted transaction none: $NONCE"
 
-# -----------------------------------------------------------------------------\n# SCHRITT 3: GENERATE HOLDER BINDING PROOF (MOCK)\n# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\n# STEP 3: GENERATE HOLDER BINDING PROOF (MOCK)\n# -----------------------------------------------------------------------------
 echo -e "\n${COLOR_INFO}[Step 3/4] Preparing Erika Mustermann tamper-proof direct_post payload...${COLOR_RESET}"
 
 # 1. Issuer-signed JWT (header & payload with claims hashes)
@@ -110,9 +110,9 @@ WIA_PAYLOAD_B64=$(echo -n "{\"iss\":\"https://wallet-provider-backend.eudi-walle
 WIA_SIGNATURE_B64="simulated_wallet_manufacturer_signature"
 MOCK_WIA_TOKEN="${WIA_HEADER_B64}.${WIA_PAYLOAD_B64}.${WIA_SIGNATURE_B64}"
 
-echo -e "${COLOR_SUCCESS}✔ direct_post Datenstrukturen generiert!${COLOR_RESET}"
+echo -e "${COLOR_SUCCESS}✔ direct_post data structures successfully generated!${COLOR_RESET}"
 
-# -----------------------------------------------------------------------------\n# SCHRITT 4: EXECUTE DIRECT_POST CALLBACK\n# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------\n# STEP 4: EXECUTE DIRECT_POST CALLBACK\n# -----------------------------------------------------------------------------
 echo -e "\n${COLOR_INFO}[Step 4/4] Sending direct_post callback via HTTP POST to server...${COLOR_RESET}"
 
 CALLBACK_RESPONSE=$(curl -s -X POST \
