@@ -2,18 +2,20 @@
 
 A developer-friendly, vendor-neutral reference framework for implementing and testing a **Relying Party / Verifier (OpenID4VP)** as well as the **Issuance (OpenID4VCI)** aspect within the nation **EUDI Wallet Ecosystem** in accordance with **eIDAS2.0**.
 
-This repository provides a local **EUDI Wallet Sandbox** with a Node.js backend that can simulate credential issuance as well as credential presentation and verification.
+This repository provides a local **EUDI Wallet Sandbox** with a Node.js backend that can simulate credential issuance as well as credential presentation and verification scenarios.
+
+Furthermore, a test script `eudi-test-harness.js` is provided that will simulate end-to-end flows for the aforementioned scenarios.
 
 ---
 
 ## 📦 Project Components / Modules
 
-The project consists of 4 related modules:
+The project consists the following related modules:
 
 1. **`eudi-verifier-helper.js` (Core Library / Presentation Verifier):**
   * verifies incoming credentials in accordance with the **4 pillars of verification**
-  * is based solely on **native Node.js `crypto` module** - no other external dependencies
-  * contains a full-blown mockup **Erika Mustermann identity simulation** for testing purposes
+  * is based solely on **native Node.js `crypto` module** - no other external `npm` dependencies
+  * contains a full-blown mockup **Erika Mustermann identity (payload) simulation** for testing purposes
 
 2. **`eudi-issuer-verifier.js` (PID Provider & Issuance Engine)**
   * simulates cryptographic core logic of a **PID provider / credential issuer** in accordance with **OpenID4VCI 1.0** and **HAIP (High-Assurance Interoperability Profile)**
@@ -23,19 +25,29 @@ The project consists of 4 related modules:
 
 3. **`eudi-verifier-server.js` (Express-based REST API):**
   * provides **Verifier (RP)** and **Provider (PID Issuer)** functionality and the corresponding API endpoints
-  * provides **Presentation Endpoints** for initializing (`GET /api/presentation/initiate`), JAR generation (`GET /api/presetation/request-jwt`), callback (`POST /api/presentation/callback`) via `direct_post` and status polling (`GET /api/presentation/status`)
+  * exports its transient signature keys for the simulated trust store to `demo-keys.json`, allowing test simulators to generate cryptographic WIA signatures
+  * saves the `SD-JWT VC` or `ISO mdoc` documents in the active transaction session and delivers them to the status interface
+  * provides **Presentation Endpoints** for initializing (`GET /api/presentation/initiate`), JAR generation (`GET /api/presetation/request-jwt`), callback (`POST /api/presentation/callback`) via `direct_post.jwr` and status polling (`GET /api/presentation/status`)
   * provides **Issuance Endpoints** for initializing & credental offer (`GET /api/issuance/initiate`), issuer metadata (`GET /api/issuance/.well-known/openid-credential-issuer`), nonce endpoint (`POST /api/issuance/nonce`), token endpoint (`POST /api/issuance/token`) and credential endpoint (`POST /api/issuance/credential`)
 
 4. **`index.html` (Web Frontend):**
   * intuitive user interface for demonstrating the cross-device wallet interaction flow
+  `visualizes RP onboarding and encryption & transport status
+  * **visual distiction** between PID (blue) and mDL (pink) document processing
   * generates QR code with `openid4vp` request
   * conducts real-time polling of fulfilment status
   * visualizes mock identity profile / audit report
+  * presents the processed identity disclosures and highlights whether the disclosures have been processed encrypted (`direct_post.jwt`) or unencrypted (`direct_post`))
 
 5. **`eudi-test-harness.sh` (Bash Test Script / Wallet Simulation):**
   * automates the presentation and validation flow via command line
   * simulates EUDI wallet interaction: retrieves the JAR request, generates SD-JWT VC with holder binding proof + WIA and posts the data to the RP interface
   * end-to-end test cycle
+  * 4 operating modes, depending on the test scenario that shall be executed
+  * `mode=1`: unencrypted direct_post presentation
+  * `mode=2`: encrypted direct_post JWE presentation
+  * `mode=3`: SD-JWT VC issuance & presentation, end-to-end flow
+  * `mode=4`: mDL issuance & presentation, end-to-end flow
 
 ---
 
@@ -53,6 +65,11 @@ The project consists of 4 related modules:
 2. **JAR Retrieval**: wallet retrieves the request. Server delivers a signed **Request Object** that contains the **DCQL Query** to the desired credential attributes
 3. **Holder Bindung**: user provides consent to sharing the requested attributes as specified within the **DCQL Query**. Wallet generated a temporary **KEy Binding JWT**, signs it with the hardware-protected private key while taking into consideration the transaction nonce and sends the `vp_token` via **HTTP POST** to the callback interface
 4. **Validation & Redirect**: server verifies the data and sends a transient `response_code` to redirect the user agent safely to the onboarding success page
+
+### 3. Application layer encryption (direct_post.jwt - JWE)
+1. **Distribution of encryption keys**: upon initiation (`GET /api/presentation/initiate`) the server will generate transient elliptic P-256 key pairs. The public key will be declared as part of `client_metadata.jwks` in the JAR request
+2. **JWE**: wallet will encrypt the `vp_token` as JWE
+3. **Decryption and validation**: callback endpoint accepts the JWE token, determines the corresponding session and decyphers the identity claims before initiating the 4 pillar validation
 
 ## 🛠️ Installation instructions
 
@@ -78,9 +95,9 @@ npm install
 Execute the following steps in a dedicted terminal window to demonstrate the full integration pipeline:
 
 ### Step 1: start the Express REST API server
-Launch the backend module. The server will generate ephemeral key pairs upon start (trust store):
+Launch the backend module. The server will generate ephemeral key pairs upon start (trust store) and will save them in `demo-keys.json`:
 ```bash
-node eudi-verifier-server-v2.js
+node eudi-verifier-server.js
 ```
 *Output:* Server is running at `http://localhost:3000`
 
@@ -90,7 +107,7 @@ Open the `index.html` file in a web browser. Alternatively, navigate to `http://
 2. The system will generate a unique transaction nonce and will display the dynamic **QR code**
 3. Frontend will now switch to waiting mode and will poll the session status continuously in the background
 
-### Step 3: execute simulation (test harness script)
+### Step 3 (deprecated): execute simulation (test harness script)
 Launch the wallet simulator in a new terminal window. The script will obtain the JAR from the server, signs the presentation claim for the mock **Erika Mustermann** ID and will POST the data to the callback interface:
 ```bash
 chmod +x eudi-test-harness.sh
@@ -101,11 +118,49 @@ chmod +x eudi-test-harness.sh
 * The script will read the transaction parameters from the QR code
 * The script will generate the hash values for the identity disclosures (first name, last name, ...)
 * The script will generated the **Key Binding JWT** and will link it to the server nonce
-* The callack (`direct_post`) will be sent to the Express backend
+* The callback (`direct_post`) will be sent to the Express backend
 
 **Result(s):** 
 * Success message will be displayed in the terminal, alongside the verified JSON profile
 * The frontend will automatically display a success message as a result of the polling succession a will dsiplay the digital ID of the mock identity (incl. the audit report)
+
+### Step 4: launch the re-written test harness / simulator
+The test harness can be executed in the desired simulation mode.
+
+#### Option A: end-to-end flow (dynamic issuance & encrypted presentation)
+This mode simulates the complete flow end-to-end:
+1. wallet obtains a freshly signed PID that is bound to a hardware device key from the issuer (`/api/issuance`)
+2. wallet will present the PID as JWE to the RP (`/api/presentation`)
+
+```bash
+node eudi-test-harness.js --mode=3
+```
+
+#### Option B: mDL presentation simulation
+This mode simulates the mDL integration:
+1. client generates a `SessionTranscript` with server nonce
+2. mDL data (Erika Mustermann) is packed into a binary `DeviceResponse` CBOR dokument, which is then being encrypted and sent to the server via `direct_post.jwt`
+3. server helper will decrypt the data, parse the CBOR structure and extract the mDL claims
+
+```bash
+node eudi-test-harness.js --mode=4
+```
+
+#### Option C: encrypted JWE presentation
+This mode simulates the onboarding scenario where the wallet is already in possession of a PID and only presents it to a requester (RP).
+
+```bash
+node eudi-test-harness.js --mode=2
+```
+
+#### Option D: unencrypted presentation
+Simulateds a simple unencrypted presentation session using mock dara.
+
+```bash
+node eudi-test-harness.js --mode=1
+```
+
+*Result*: server will verify the signatures and PoPs. Runtime statistics will be presented upon session completion.
 
 ---
 
