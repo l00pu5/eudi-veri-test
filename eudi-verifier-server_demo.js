@@ -1,5 +1,5 @@
 /**
- * EUDI Wallet - Combined Relying Party (RP) & Credential Issuer REST API Server v12
+ * EUDI Wallet - Combined Relying Party (RP) & Credential Issuer REST API Server v14
  * 
  * Dieses Express-Modul implementiert die vollständigen Endpunkte für:
  * 1. Ein RP-Backend zur Präsentation von Credentials (OpenID4VP) mit JWE-Entschlüsselung (direct_post.jwt)
@@ -21,6 +21,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
+const path = require('path');
 const { EUDIVerifier } = require('./eudi-verifier-helper-v7');
 const { EUDIPIDIssuerVerifier } = require('./eudi-issuer-verifier');
 
@@ -31,6 +32,14 @@ const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+// Statische Dateien (wie index.html und andere Assets) aus dem aktuellen Verzeichnis servieren
+app.use(express.static(__dirname));
+
+// Route für das Haupt-Frontend (index.html) an der Server-Wurzel
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 // Session-Management zur Speicherung von Nonce und Verifizierungsergebnissen
 app.use(session({
@@ -100,33 +109,38 @@ const pidIssuer = new EUDIPIDIssuerVerifier({
 // KRYPTOGRAFISCHE HILFSFUNKTIONEN FÜR JWE-ENTSCHLÜSSELUNG (ECDH-ES + A128GCM/A256GCM)
 // =============================================================================
 
-function deriveConcatKDF(sharedSecret, keyLenBytes, alg, apu = null, apv = null) {
+function deriveConcatKDF(sharedSecret, keyLenBytes, alg, apu, apv) {
   const roundOutputs = [];
   let counter = 1;
   const keyLenBits = keyLenBytes * 8;
 
+  // AlgorithmID: 32-bit length prefix + alg string bytes
   const algBuffer = Buffer.from(alg, 'ascii');
   const algLen = Buffer.alloc(4);
   algLen.writeUInt32BE(algBuffer.length, 0);
+  const algorithmID = Buffer.concat([algLen, algBuffer]);
 
+  // PartyUInfo: 32-bit length prefix + apu bytes (if present, else empty)
   const apuBuffer = apu ? Buffer.from(apu, 'base64url') : Buffer.alloc(0);
   const apuLen = Buffer.alloc(4);
   apuLen.writeUInt32BE(apuBuffer.length, 0);
+  const partyUInfo = Buffer.concat([apuLen, apuBuffer]);
 
+  // PartyVInfo: 32-bit length prefix + apv bytes (if present, else empty)
   const apvBuffer = apv ? Buffer.from(apv, 'base64url') : Buffer.alloc(0);
   const apvLen = Buffer.alloc(4);
   apvLen.writeUInt32BE(apvBuffer.length, 0);
+  const partyVInfo = Buffer.concat([apvLen, apvBuffer]);
 
+  // SuppPubInfo: 32-bit big-endian integer representing key length in bits
   const suppPubInfo = Buffer.alloc(4);
   suppPubInfo.writeUInt32BE(keyLenBits, 0);
 
+  // Concat all to form fixedInfo (OtherInfo)
   const fixedInfo = Buffer.concat([
-    algLen,
-    algBuffer,
-    apuLen,
-    apuBuffer,
-    apvLen,
-    apvBuffer,
+    algorithmID,
+    partyUInfo,
+    partyVInfo,
     suppPubInfo
   ]);
 

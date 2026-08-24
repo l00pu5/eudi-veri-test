@@ -133,33 +133,38 @@ function signJws(header, payload, privateKey) {
 /**
  * Concat KDF gemäß RFC 7518 Sektion 4.6.2 zur CEK-Ableitung (AES-128-GCM)
  */
-function deriveConcatKDF(sharedSecret, keyLenBytes, alg, apu = null, apv = null) {
+function deriveConcatKDF(sharedSecret, keyLenBytes, alg, apu, apv) {
   const roundOutputs = [];
   let counter = 1;
   const keyLenBits = keyLenBytes * 8;
 
+  // AlgorithmID: 32-bit length prefix + alg string bytes
   const algBuffer = Buffer.from(alg, 'ascii');
   const algLen = Buffer.alloc(4);
   algLen.writeUInt32BE(algBuffer.length, 0);
+  const algorithmID = Buffer.concat([algLen, algBuffer]);
 
+  // PartyUInfo: 32-bit length prefix + apu bytes (if present, else empty)
   const apuBuffer = apu ? Buffer.from(apu, 'base64url') : Buffer.alloc(0);
   const apuLen = Buffer.alloc(4);
   apuLen.writeUInt32BE(apuBuffer.length, 0);
+  const partyUInfo = Buffer.concat([apuLen, apuBuffer]);
 
+  // PartyVInfo: 32-bit length prefix + apv bytes (if present, else empty)
   const apvBuffer = apv ? Buffer.from(apv, 'base64url') : Buffer.alloc(0);
   const apvLen = Buffer.alloc(4);
   apvLen.writeUInt32BE(apvBuffer.length, 0);
+  const partyVInfo = Buffer.concat([apvLen, apvBuffer]);
 
+  // SuppPubInfo: 32-bit big-endian integer representing key length in bits
   const suppPubInfo = Buffer.alloc(4);
   suppPubInfo.writeUInt32BE(keyLenBits, 0);
 
+  // Concat all to form fixedInfo (OtherInfo)
   const fixedInfo = Buffer.concat([
-    algLen,
-    algBuffer,
-    apuLen,
-    apuBuffer,
-    apvLen,
-    apvBuffer,
+    algorithmID,
+    partyUInfo,
+    partyVInfo,
     suppPubInfo
   ]);
 
@@ -203,24 +208,30 @@ async function run() {
   let modeArg = args.find(arg => arg.startsWith('--mode='));
   let mode = modeArg ? modeArg.split('=')[1] : '3'; // Default: Modus 3 (E2E)
 
+  let sidArg = args.find(arg => arg.startsWith('--sid='));
+  let externalSid = sidArg ? sidArg.split('=')[1] : null;
+
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
   console.log(`${COLOR_BOLD}${COLOR_INFO}📱 EUDI WALLET - UNIFIED CRYPTO-TEST HARNESS & CLIENT (JS)${COLOR_RESET}`);
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
   console.log(`Gewählter Simulationsmodus: ${COLOR_BOLD}${COLOR_WARN}Modus ${mode}${COLOR_RESET}`);
+  if (externalSid) {
+    console.log(`Browser-Sitzungs-ID gekoppelt: ${COLOR_BOLD}${COLOR_SUCCESS}${externalSid}${COLOR_RESET}`);
+  }
 
   if (mode === '1') {
     console.log(`Beschreibung: Unverschlüsselte direct_post-Präsentation (Mock-Claims).`);
-    await runPresentation(false, null);
+    await runPresentation(false, null, externalSid);
   } else if (mode === '2') {
     console.log(`Beschreibung: Verschlüsselte direct_post.jwt-Präsentation (JWE via ECDH-ES).`);
-    await runPresentation(true, null);
+    await runPresentation(true, null, externalSid);
   } else if (mode === '3') {
     console.log(`Beschreibung: Vollständige E2E-Pipeline (Ausstellung + JWE-verschlüsselte Präsentation).`);
     const issuedCredential = await runIssuance();
-    await runPresentation(true, issuedCredential);
+    await runPresentation(true, issuedCredential, externalSid);
   } else if (mode === '4') {
     console.log(`Beschreibung: mdoc-Präsentationsmodus (mDL) mit binärer DeviceResponse-CBOR-Simulation.`);
-    await runMdocPresentation(true); // mdoc mit JWE verschlüsselt senden
+    await runMdocPresentation(true, externalSid); // mdoc mit JWE verschlüsselt senden
   } else {
     console.error(`${COLOR_ERROR}❌ Ungültiger Modus: ${mode}. Unterstützt werden: 1, 2, 3, 4.${COLOR_RESET}`);
     process.exit(1);
@@ -382,18 +393,26 @@ async function runIssuance() {
  * SCHRITT B: PRÄSENTATIONS-PROZESS (OpenID4VP) - Modi 1, 2 und 3
  * ─────────────────────────────────────────────────────────────────────────────
  */
-async function runPresentation(useEncryption, issuedData) {
+async function runPresentation(useEncryption, issuedData, externalSid = null) {
   console.log(`\n${COLOR_INFO}--- PHASE 2: AUSWEIS-PRÄSENTATION (OpenID4VP) ---${COLOR_RESET}`);
 
-  console.log(`[VP 1] Initiiere neue Präsentations-Sitzung am Verifizierer...`);
-  const initResponse = await trackTime('HTTP: Initiere VP Session',
-    fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
-  );
-  const { sessionId, qrCodeUrl } = initResponse;
-  console.log(`   ✔ Session erfolgreich erstellt. ID: ${sessionId}`);
+  let sessionId, requestUri;
+  if (externalSid) {
+    console.log(`[VP 1] Verwende übergebene Browser-Sitzungs-ID: ${externalSid}`);
+    sessionId = externalSid;
+    requestUri = `${API_BASE}/api/presentation/request-jwt?sid=${sessionId}`;
+  } else {
+    console.log(`[VP 1] Initiiere neue Präsentations-Sitzung am Verifizierer...`);
+    const initResponse = await trackTime('HTTP: Initiere VP Session',
+      fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
+    );
+    sessionId = initResponse.sessionId;
+    const qrCodeUrl = initResponse.qrCodeUrl;
+    console.log(`   ✔ Session erfolgreich erstellt. ID: ${sessionId}`);
+    requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
+  }
 
   console.log(`[VP 2] Rufe Request Object (JAR) via request_uri ab...`);
-  const requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
   const signedJar = await trackTime('HTTP: Hole JAR Request',
     fetch(requestUri).then(res => res.text())
   );
@@ -568,18 +587,26 @@ async function runPresentation(useEncryption, issuedData) {
  * SCHRITT C: MDOC PRÄSENTATIONS-PROZESS (MODUS 4)
  * ─────────────────────────────────────────────────────────────────────────────
  */
-async function runMdocPresentation(useEncryption) {
+async function runMdocPresentation(useEncryption, externalSid = null) {
   console.log(`\n${COLOR_INFO}--- AUSWEIS-PRÄSENTATION IM ISO MDOC-FORMAT (mDL) ---${COLOR_RESET}`);
 
-  console.log(`[mdoc 1] Initiiere neue Präsentations-Sitzung am Verifizierer...`);
-  const initResponse = await trackTime('HTTP: Initiere mdoc Session',
-    fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
-  );
-  const { sessionId, qrCodeUrl } = initResponse;
-  console.log(`   ✔ Session erfolgreich erstellt. ID: ${sessionId}`);
+  let sessionId, requestUri;
+  if (externalSid) {
+    console.log(`[mdoc 1] Verwende übergebene Browser-Sitzungs-ID: ${externalSid}`);
+    sessionId = externalSid;
+    requestUri = `${API_BASE}/api/presentation/request-jwt?sid=${sessionId}`;
+  } else {
+    console.log(`[mdoc 1] Initiiere neue Präsentations-Sitzung am Verifizierer...`);
+    const initResponse = await trackTime('HTTP: Initiere mdoc Session',
+      fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
+    );
+    sessionId = initResponse.sessionId;
+    const qrCodeUrl = initResponse.qrCodeUrl;
+    console.log(`   ✔ Session erfolgreich erstellt. ID: ${sessionId}`);
+    requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
+  }
 
   console.log(`[mdoc 2] Rufe Request Object (JAR) via request_uri ab...`);
-  const requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
   const signedJar = await trackTime('HTTP: Hole JAR Request',
     fetch(requestUri).then(res => res.text())
   );
