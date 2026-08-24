@@ -325,7 +325,7 @@
       document.getElementById('qr-container').classList.add('hidden');
 
       // Onboarding Session initiieren
-      fetch('/api/presentation/initiate')
+      fetch('http://localhost:3000/api/presentation/initiate')
         .then(res => res.json())
         .then(data => {
           if (data.success) {
