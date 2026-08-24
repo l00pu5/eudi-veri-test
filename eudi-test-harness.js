@@ -744,24 +744,28 @@ async function runMdocPresentation(useEncryption) {
  */
 function printStatsTable() {
   console.log(`${COLOR_BOLD}${COLOR_CYAN}📊 CONSOLIDATED RUNTIME STATISTIC OF THE TRANSACTION${COLOR_RESET}`);
-  console.log(`+---------------------------------------------+-----------------+`);
-  console.log(`| ${COLOR_BOLD}Action / Step${COLOR_RESET}           | ${COLOR_BOLD}Runtime (ms)${COLOR_RESET}    |`);
-  console.log(`+---------------------------------------------+-----------------+`);
+
+  const col1Width = 55;
+  const col2Width = 14;
+
+  console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
+  console.log(`| ${COLOR_BOLD}${'Aktion / Kryptografischer Schritt'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${'Laufzeit'.padEnd(col2Width)}${COLOR_RESET} |`);
+  console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
 
   let totalTime = 0;
   for (const [label, time] of Object.entries(rTimes)) {
-    const padding = ' '.repeat(43 - label.length);
-    const timeStr = time.toFixed(2);
-    const timePadding = ' '.repeat(13 - timeStr.length);
-    console.log(`| ${label}${padding} | ${COLOR_BOLD}${timeStr}${COLOR_RESET} ms${timePadding} |`);
+    const padding = ' '.repeat(Math.max(0, col1Width - label.length));
+    const timeStr = time.toFixed(2) + " ms";
+    const timePadding = ' '.repeat(Math.max(0, col2Width - timeStr.length));
+    console.log(`| ${label}${padding} | ${COLOR_BOLD}${timeStr}${COLOR_RESET}${timePadding} |`);
     totalTime += time;
   }
 
-  console.log(`+---------------------------------------------+-----------------+`);
-  const totalTimeStr = totalTime.toFixed(2);
-  const totalPadding = ' '.repeat(13 - totalTimeStr.length);
-  console.log(`| ${COLOR_BOLD}TOTAL TIME ELAPSED (Simulator)${COLOR_RESET}             | ${COLOR_BOLD}${COLOR_SUCCESS}${totalTimeStr}${COLOR_RESET} ms${totalPadding} |`);
-  console.log(`+---------------------------------------------+-----------------+\n`);
+  console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
+  const totalTimeStr = totalTime.toFixed(2) + " ms";
+  const totalPadding = ' '.repeat(Math.max(0, col2Width - totalTimeStr.length));
+  console.log(`| ${COLOR_BOLD}${'GESAMT-DURCHLAUFZEIT (Simulator)'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${COLOR_SUCCESS}${totalTimeStr}${COLOR_RESET}${totalPadding} |`);
+  console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
 }
 
 run().catch(err => {
