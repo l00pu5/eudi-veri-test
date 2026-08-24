@@ -49,6 +49,9 @@ The project consists the following related modules:
   * `mode=3`: SD-JWT VC issuance & presentation, end-to-end flow
   * `mode=4`: mDL issuance & presentation, end-to-end flow
 
+6. **`eudi-jwe-test-client.js` (JWE flow simulation)**
+  * simulates and end-to-end presentation flow using JWE instead of unencrypted data
+
 ---
 
 ## 🔄 Data flows within the sandbox
