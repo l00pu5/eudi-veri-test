@@ -1,40 +1,42 @@
 # EUDI Wallet - Relying Party (RP) & Credential Issuer Sandbox
 
-Ein herstellerneutrales, voll integriertes Referenz-Framework zur Implementierung und Erprobung der **Herausgabe (Issuance - OpenID4VCI)** und der **Präsentation (Presentation - OpenID4VP)** von digitalen Nachweisen (z. B. einer Personenidentität / PID) im europäischen **EUDI-Wallet-Ökosystem (eIDAS 2.0)**.
-
-Dieses Repository stellt eine vollständige lokale **EUDI-Wallet-Sandbox** bereit. Sie kombiniert ein leistungsfähiges Node.js-Backend, das sowohl Ausstellungs- als auch Präsentations-Schnittstellen bereitstellt, mit einer interaktiven Benutzeroberfläche zur Visualisierung und einem einheitlichen, plattformunabhängigen Krypto-Test-Simulator (`eudi-test-harness-v8.js`) zur vollautomatisierten Validierung aller Datenflüsse.
+This is a testing / sandbox reference framework for testing **Credential Issuance (OpenID4VCI)** as well as **Credential Presentation (OPen4ID4VP)** within the **EUDI Wallet Ecosystem**.
+This repository aims to provide a full local **EUDI Wallet Sandbox**. It provides the following components:
+- a Node.js backend that provided the necessary API endpoints for credential issuance, credential presentation and status polling
+- an interactive web UI for visualization purposes
+- a simulator / test script that can invoke and validate the data flow(s)
 
 ---
 
-## 📦 Komponenten des Projekts
+## 📦 Project components
 
-Das Projekt ist modular aufgebaut und besteht aus den folgenden Kernkomponenten:
+The project consists of the following modules and components:
 
-1. **`eudi-verifier-helper-v7.js` (Präsentations-Verifizierer):**
-   * Verifiziert empfangene Präsentationen (z. B. SD-JWT VC oder binäre mdoc-Belege) fälschungssicher entlang der gesetzlichen **4 Säulen der Verifizierung** und stellt ein detailliertes Integritäts- und Hash-Matching-Log (`integrityLog`) bereit.
-   * Basiert ausschließlich auf dem **nativen Node.js `crypto`-Modul** (keine externen `npm`-Abhängigkeiten, ideal für Audits).
-   * Enthält eine integrierte **Erika-Mustermann-Payload** zur lokalen Validierungssimulation.
+1. **`eudi-verifier-helper_demo.js` (presentation verification):**
+   * Verifies incoming presentations (SD-JWT VC or binary mdoc documents) in a tamper-proof fashion and provides a detailed integrity and hash matching log (`integrityLog`).
+   * Is based solely on the  **native Node.js `crypto` module** (no additional npm dependencies).
+   * Contains a mock **Erika Mustermann identity payload** for local validation simulation.
 
-2. **`eudi-issuer-verifier.js` (Ausstellungs-Engine & PID-Herausgeber):**
+2. **`eudi-issuer-verifier.js` (issuance engine & PID provider):**
    * Simuliert die kryptografische Kernlogik eines **PID-Providers (Credential Issuers)** gemäß **OpenID4VCI 1.0** und dem **High-Assurance Interoperability Profile (HAIP)**.
    * Prüft eingehende Ausstellungsanfragen am **Token- und Credential-Endpoint**: Validiert die *Wallet Instance Attestation (WIA)* (Säule 4), den Schlüsselbesitznachweis des Nutzers (*Proof of Possession - PoP*) über die `c_nonce` sowie das *DPoP-Sender-Constrainting*.
    * Generiert und signiert eine echte **SD-JWT-basierte PID für Erika Mustermann** inklusive Zufalls-Salts für Selective Disclosure.
 
-3. **`eudi-verifier-server-v17.js` (Integrierter Express-REST-API-Server):**
+3. **`eudi-verifier-server_demo_.js` (REST API server):**
    * **Die EUDI-Ecosystem-Zentrale:** Vereint die Rollen des *Verifiziers (Relying Party)* und des *Herausgebers (PID Issuers)* auf einem Server (Port `3000`).
    * Exportiert beim Start automatisch seine flüchtigen Signaturschlüssel für den simulierten Trust-Store nach `demo-keys.json`, damit Test-Simulatoren WIA-Signaturen kryptografisch korrekt erzeugen können.
    * Speichert das verifizierte Dokumentenformat (`SD-JWT VC` oder `ISO mdoc`) sowie das kryptografische `integrityLog` und `rawSdList` in der Sitzung und liefert diese am Status-Endpoint aus.
    * **Präsentations-Endpoints:** Initialisierung (`GET /api/presentation/initiate`), JAR-Ausgabe (`GET /api/presentation/request-jwt`), Callback (`POST /api/presentation/callback`) via `direct_post.jwt` sowie Status-Polling (`GET /api/presentation/status`).
    * **Ausstellungs-Endpoints:** Initialisierung (`GET /api/issuance/initiate`), Issuer-Metadaten (`GET /api/issuance/.well-known/openid-credential-issuer`), Nonce-Endpoint (`POST /api/issuance/nonce`), Token-Endpoint (`POST /api/issuance/token`) und Credential-Endpoint (`POST /api/issuance/credential`).
 
-4. **`index-v8.html.txt` (Tailwind CSS Web-Frontend):**
+4. **`index.html` (interactive web UI / frontend):**
    * Visualisiert das sichere Onboarding einer Relying Party sowie den Verschlüsselungs- und Transportstatus.
    * Unterscheidet **visuell dynamisch** zwischen PID (blau) und mDL (rosa) und enthält das interaktive **Kryptografischer Audit-Pfad (Entwickler-Analyse)** Widget, welches den genauen SHA-256 Hash-Abgleich der Disclosures und das mdoc `SessionTranscript` visualisiert.
    * **Bequeme Session-Kopplung:** Zeigt die aktive Onboarding Session-ID direkt unter dem QR-Code an und ermöglicht das Kopieren in die Zwischenablage mit einem einzigen Klick (Copy-to-Clipboard-Button), um das Einfügen in den Terminal-Simulator zu vereinfachen.
    * Rendert den dynamischen `openid4vp://`-QR-Code und führt ein asynchrones Status-Polling (AJAX) durch.
    * Präsentiert Erika Mustermanns verifiziertes Identitätsprofil nach erfolgreicher Übertragung und hebt hervor, ob die Belege im Klartext (`direct_post`) oder verschlüsselt (`direct_post.jwt` via JWE) empfangen wurden.
 
-5. **`eudi-test-harness-v8.js` (Unified Krypto-Test-Simulator & E2E Client):**
+5. **`eudi-test-harness_demo_.js` (test simulator & end-to-end client):**
    * Der plattformunabhängige, einheitliche Krypto-Test-Simulator. Er simuliert das Verhalten einer eIDAS-konformen Wallet-App mathematisch korrekt am Terminal.
    * Er beherrscht vier Betriebsmodi (`--mode=1`, `--mode=2`, `--mode=3`, `--mode=4`) für einfache unverschlüsselte Onboardings, vollwertige ECDH-ES-verschlüsselte JWE-Präsentationen, den kompletten E2E-Lebenszyklus oder die Simulation von **mDL-Führerschein-Präsentationen** im binären CBOR-Format.
    * Schreibt am Ende jedes Laufs eine detaillierte **Laufzeit-Statistiktabelle** über die Krypto- und Übertragungszeiten in das Terminal.
