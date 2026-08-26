@@ -227,13 +227,25 @@ async function run() {
     await runPresentation(true, null, externalSid);
   } else if (mode === '3') {
     console.log(`Beschreibung: Vollständige E2E-Pipeline (Ausstellung + JWE-verschlüsselte Präsentation).`);
-    const issuedCredential = await runIssuance();
-    await runPresentation(true, issuedCredential, externalSid);
+    const issuedCredential = await runIssuance('dc+sd-jwt', externalSid);
+    if (externalSid && externalSid.startsWith('session_iss_')) {
+      console.log(`🎉 Erfolgreich! Ausweis wurde via OpenID4VCI an Browser-Sitzung ausgestellt.`);
+    } else {
+      await runPresentation(true, issuedCredential, externalSid);
+    }
   } else if (mode === '4') {
     console.log(`Beschreibung: mdoc-Präsentationsmodus (mDL) mit binärer DeviceResponse-CBOR-Simulation.`);
     await runMdocPresentation(true, externalSid); // mdoc mit JWE verschlüsselt senden
+  } else if (mode === '5') {
+    console.log(`Beschreibung: Vollständige mDL E2E-Pipeline (mDL-Ausstellung + mdoc-Präsentation).`);
+    const issuedCredential = await runIssuance('mso_mdoc', externalSid);
+    if (externalSid && externalSid.startsWith('session_iss_')) {
+      console.log(`🎉 Erfolgreich! mDL-Führerschein wurde via OpenID4VCI an Browser-Sitzung ausgestellt.`);
+    } else {
+      await runMdocPresentation(true, externalSid, issuedCredential);
+    }
   } else {
-    console.error(`${COLOR_ERROR}❌ Ungültiger Modus: ${mode}. Unterstützt werden: 1, 2, 3, 4.${COLOR_RESET}`);
+    console.error(`${COLOR_ERROR}❌ Ungültiger Modus: ${mode}. Unterstützt werden: 1, 2, 3, 4, 5.${COLOR_RESET}`);
     process.exit(1);
   }
 
@@ -245,8 +257,9 @@ async function run() {
  * SCHRITT A: AUSSTELLUNGS-PROZESS (OpenID4VCI) - Nur für Modus 3
  * ─────────────────────────────────────────────────────────────────────────────
  */
-async function runIssuance() {
+async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
   console.log(`\n${COLOR_INFO}--- PHASE 1: DYNAMISCHE AUSWEIS-HERAUSGABE (OpenID4VCI) ---${COLOR_RESET}`);
+  console.log(`   Format: ${COLOR_BOLD}${format}${COLOR_RESET}`);
 
   const keysPath = './demo-keys.json';
   if (!fs.existsSync(keysPath)) {
@@ -270,11 +283,27 @@ async function runIssuance() {
   const walletPubKeyJwk = walletKeyPair.publicKey.export({ format: 'jwk' });
   const devicePubKeyJwk = deviceKeyPair.publicKey.export({ format: 'jwk' });
 
-  console.log(`[VCI 3] Initiiere Ausstellungs-Sitzung...`);
-  const initResponse = await trackTime('HTTP: Initiere VCI Session',
-    fetch(`${API_BASE}/api/issuance/initiate`).then(res => res.json())
-  );
-  const { sessionId, wiaChallenge } = initResponse;
+  let sessionId, wiaChallenge;
+  if (externalSid && externalSid.startsWith('session_iss_')) {
+    console.log(`[VCI 3] Verwende übergebene Browser-Ausstellungs-Sitzung: ${externalSid}`);
+    sessionId = externalSid;
+    const sessionInfo = await trackTime('HTTP: Hole VCI Session Info',
+      fetch(`${API_BASE}/api/issuance/session-info?sid=${sessionId}`).then(res => res.json())
+    );
+    wiaChallenge = sessionInfo.wiaChallenge;
+    console.log(`   ✔ Challenge erfolgreich abgerufen: ${wiaChallenge}`);
+  } else {
+    console.log(`[VCI 3] Initiiere neue Ausstellungs-Sitzung...`);
+    const initResponse = await trackTime('HTTP: Initiere VCI Session',
+      fetch(`${API_BASE}/api/issuance/initiate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format: format })
+      }).then(res => res.json())
+    );
+    sessionId = initResponse.sessionId;
+    wiaChallenge = initResponse.wiaChallenge;
+  }
   console.log(`   ✔ Session erstellt. ID: ${sessionId}`);
 
   console.log(`[VCI 4] Hole frische Einmal-Nonces vom Nonce-Endpoint...`);
@@ -360,7 +389,7 @@ async function runIssuance() {
 
   console.log(`[VCI 9] Rufe frisch ausgestellten mdoc/SD-JWT Ausweis ab...`);
   const credRequestPayload = {
-    credential_configuration_id: 'PID_SD_JWT_VC',
+    credential_configuration_id: format === 'mso_mdoc' ? 'mDL_mso_mdoc' : 'PID_SD_JWT_VC',
     proofs: {
       jwt: popProofJwt
     }
@@ -587,7 +616,7 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
  * SCHRITT C: MDOC PRÄSENTATIONS-PROZESS (MODUS 4)
  * ─────────────────────────────────────────────────────────────────────────────
  */
-async function runMdocPresentation(useEncryption, externalSid = null) {
+async function runMdocPresentation(useEncryption, externalSid = null, issuedData = null) {
   console.log(`\n${COLOR_INFO}--- AUSWEIS-PRÄSENTATION IM ISO MDOC-FORMAT (mDL) ---${COLOR_RESET}`);
 
   let sessionId, requestUri;
@@ -702,9 +731,10 @@ async function runMdocPresentation(useEncryption, externalSid = null) {
   const base64DeviceResponse = base64url(deviceResponseCbor);
 
   // Callback payload zusammenbauen
+  const finalMdlBase64 = issuedData ? issuedData.credential : base64DeviceResponse;
   const cleartextPayload = {
     vp_token: {
-      my_mdl_credential: [base64DeviceResponse]
+      my_mdl_credential: [finalMdlBase64]
     },
     wia_token: `eyJhbGciOiJFUzI1NiIsInR5cCI6Im9hdXRoLWNsaWVudC1hdHRlc3RhdGlvbitqd3QifQ.${base64url(JSON.stringify({
       iss: "https://wallet-provider-backend.eudi-wallet.de",

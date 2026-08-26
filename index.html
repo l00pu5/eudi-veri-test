@@ -1,303 +1,1385 @@
 <!DOCTYPE html>
-<html lang="de" class="h-full bg-slate-950 text-slate-100">
+<html lang="de">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EUDI Wallet - Relying Party Sandbox</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0f7ff',
-              100: '#e0effe',
-              500: '#0070f3',
-              600: '#0060df',
-              950: '#020617',
-            }
-          }
-        }
+  <title>EUDI Wallet - Relying Party Sandbox Onboarding</title>
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --border-color: #e2e8f0;
+      --brand-color: #004494;
+      /* Official EU Trust Blue */
+      --brand-hover: #003380;
+      --brand-light: rgba(0, 68, 148, 0.08);
+      --success-color: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.08);
+      --warning-color: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.08);
+      --indigo-color: #6366f1;
+      --pink-color: #ec4899;
+      --rose-color: #f43f5e;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+
+    /* Header */
+    header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      height: 4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .status-dot-container {
+      display: flex;
+      height: 0.75rem;
+      width: 0.75rem;
+      position: relative;
+    }
+
+    .status-ping {
+      animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+      position: absolute;
+      inline-size: 100%;
+      block-size: 100%;
+      border-radius: 9999px;
+      background-color: #34d399;
+      opacity: 0.75;
+    }
+
+    @keyframes ping {
+
+      75%,
+      100% {
+        transform: scale(2);
+        opacity: 0;
       }
     }
-  </script>
+
+    .status-dot {
+      position: relative;
+      display: inline-flex;
+      border-radius: 9999px;
+      height: 0.75rem;
+      width: 0.75rem;
+      background-color: #10b981;
+    }
+
+    .header-title {
+      font-weight: 700;
+      font-size: 1.125rem;
+      color: var(--brand-color);
+      letter-spacing: -0.025em;
+    }
+
+    .header-badge {
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      background-color: var(--brand-light);
+      color: var(--brand-color);
+      border: 1px solid rgba(0, 68, 148, 0.15);
+    }
+
+    /* Layout Grid */
+    main {
+      flex: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      width: 100%;
+      box-sizing: border-box;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (min-width: 1024px) {
+      main {
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+      }
+
+      .col-span-5 {
+        grid-column: span 5 / span 5;
+      }
+
+      .col-span-7 {
+        grid-column: span 7 / span 7;
+      }
+    }
+
+    .space-y-6>*+* {
+      margin-top: 1.5rem;
+    }
+
+    /* Card System */
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-glow {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 8rem;
+      height: 8rem;
+      background-color: rgba(0, 112, 243, 0.03);
+      border-radius: 9999px;
+      filter: blur(24px);
+      z-index: -10;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.025em;
+    }
+
+    .card-desc {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin-top: 0;
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+
+    /* Onboarding Trigger & Interactive Widget */
+    .trigger-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      width: 100%;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background-color: var(--brand-color);
+      color: white;
+      font-weight: 600;
+      border: none;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      box-shadow: 0 10px 15px -3px rgba(0, 68, 148, 0.15);
+      transition: all 0.2s ease;
+      font-size: 0.95rem;
+      box-sizing: border-box;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--brand-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary:disabled {
+      background-color: var(--text-muted);
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn-icon {
+      height: 1.25rem;
+      width: 1.25rem;
+    }
+
+    /* QR Code & Copy Widget */
+    .qr-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .qr-code-img {
+      width: 12rem;
+      height: 12rem;
+      display: block;
+    }
+
+    .qr-code-text {
+      font-size: 0.65rem;
+      color: var(--text-secondary);
+      font-family: monospace;
+      margin-top: 0.75rem;
+      text-align: center;
+      word-break: break-all;
+      max-width: 100%;
+      display: block;
+    }
+
+    .session-widget {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #f1f5f9;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      box-sizing: border-box;
+    }
+
+    .session-widget-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .session-id-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      background-color: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      width: 100%;
+      max-width: 240px;
+      box-sizing: border-box;
+    }
+
+    .session-id-text {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      user-select: all;
+    }
+
+    .btn-copy {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem;
+      border-radius: 0.25rem;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-copy:hover {
+      color: var(--brand-color);
+      background-color: rgba(0, 68, 148, 0.05);
+    }
+
+    /* Status & Polling Loader */
+    .status-widget {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background-color: var(--brand-light);
+      border: 1px solid rgba(0, 68, 148, 0.12);
+      border-radius: 0.75rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .spinner {
+      animation: spin 1s linear infinite;
+      height: 1.25rem;
+      width: 1.25rem;
+      color: var(--brand-color);
+      fill: none;
+    }
+
+    .status-text {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--brand-color);
+    }
+
+    /* Placeholder System */
+    .placeholder {
+      background-color: var(--card-bg);
+      border: 2px dashed var(--border-color);
+      border-radius: 1.5rem;
+      padding: 3rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      box-sizing: border-box;
+    }
+
+    .placeholder-icon {
+      height: 4rem;
+      width: 4rem;
+      background-color: #f1f5f9;
+      color: var(--text-secondary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .placeholder-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .placeholder-desc {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-top: 0.5rem;
+      margin-bottom: 0;
+      max-width: 24rem;
+      line-height: 1.5;
+    }
+
+    /* Transport security & JWE indicators */
+    .transport-security-card {
+      border-radius: 1rem;
+      padding: 1.25rem;
+      border: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: start;
+      gap: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+    }
+
+    .transport-security-card.encrypted-style {
+      border-color: rgba(16, 185, 129, 0.2);
+      background-color: var(--success-bg);
+    }
+
+    .transport-security-card.plain-style {
+      border-color: rgba(245, 158, 11, 0.2);
+      background-color: var(--warning-bg);
+    }
+
+    .transport-icon-wrapper {
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .transport-icon-wrapper.encrypted {
+      background-color: rgba(16, 185, 129, 0.1);
+      color: var(--success-color);
+    }
+
+    .transport-icon-wrapper.plain {
+      background-color: rgba(245, 158, 11, 0.1);
+      color: var(--warning-color);
+    }
+
+    .transport-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .transport-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .transport-badge {
+      padding: 0.15rem 0.5rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      border-radius: 9999px;
+    }
+
+    .transport-badge.encrypted {
+      background-color: rgba(16, 185, 129, 0.1);
+      color: #065f46;
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .transport-badge.plain {
+      background-color: rgba(245, 158, 11, 0.1);
+      color: #92400e;
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .transport-desc {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    /* Credential Card & Profil Profile Views */
+    .credential-card {
+      border-radius: 1rem;
+      border: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .credential-header {
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: white;
+      transition: background 0.5s ease;
+    }
+
+    .credential-header.pid-style {
+      background: linear-gradient(135deg, var(--brand-color) 0%, var(--indigo-color) 100%);
+    }
+
+    .credential-header.mdoc-style {
+      background: linear-gradient(135deg, var(--pink-color) 0%, var(--rose-color) 100%);
+    }
+
+    .credential-header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .credential-icon-container {
+      padding: 0.5rem;
+      background-color: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .credential-type-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.85);
+      margin: 0;
+    }
+
+    .credential-title-text {
+      font-size: 1.125rem;
+      font-weight: 800;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+
+    .credential-status-badge {
+      padding: 0.25rem 0.75rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border-radius: 9999px;
+      background-color: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+    }
+
+    .credential-body {
+      padding: 1.5rem;
+    }
+
+    /* Form / Claims Grid */
+    .claims-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .claims-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .claims-right-col {
+        border-top: none !important;
+        border-left: 1px solid var(--border-color);
+        padding-top: 0 !important;
+        padding-left: 1.5rem;
+      }
+    }
+
+    .claim-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .claim-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .claim-value {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .claims-right-col {
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.5rem;
+    }
+
+    /* 4-Pillars Section */
+    .pillars-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    .pillars-header {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 0;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .pillars-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .pillar-row {
+      display: flex;
+      align-items: start;
+      gap: 1rem;
+      padding: 1rem;
+      background-color: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+    }
+
+    .pillar-icon-wrapper {
+      color: var(--success-color);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .pillar-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .pillar-title {
+      font-size: 0.825rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .pillar-desc {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    /* Collapsible Cryptographic Audit Trail Card */
+    .audit-panel {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+    }
+
+    .audit-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 1.5rem;
+      cursor: pointer;
+      user-select: none;
+      background-color: var(--card-bg);
+      transition: background-color 0.2s ease;
+    }
+
+    .audit-panel-header:hover {
+      background-color: #f8fafc;
+    }
+
+    .audit-panel-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--brand-color);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .audit-panel-arrow {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      font-weight: bold;
+    }
+
+    .audit-panel-content {
+      padding: 1.5rem;
+      border-top: 1px solid var(--border-color);
+      background-color: #ffffff;
+    }
+
+    .audit-section-title {
+      font-size: 0.825rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 0;
+      margin-bottom: 0.75rem;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    /* Responsive Table */
+    .table-responsive {
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+    }
+
+    .disclosure-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.75rem;
+    }
+
+    .disclosure-table th {
+      font-weight: 700;
+      color: var(--text-secondary);
+      background-color: #f8fafc;
+      padding: 0.75rem;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .disclosure-table td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .disclosure-row {
+      transition: background-color 0.2s ease;
+    }
+
+    .disclosure-row:hover {
+      background-color: rgba(99, 102, 241, 0.03);
+    }
+
+    .hidden-hash-container {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .hidden-hash-container {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .hidden-hash-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+      background-color: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-family: monospace;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .hidden-hash-badge {
+      padding: 0.15rem 0.5rem;
+      font-size: 0.6rem;
+      font-weight: 700;
+      border-radius: 9999px;
+      background-color: #f1f5f9;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-color);
+    }
+
+    /* Footer styling */
+    footer {
+      border-top: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      padding: 1.5rem 0;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: auto;
+    }
+
+    .footer-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Helper Classes */
+    .hidden {
+      display: none !important;
+    }
+
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .success-text {
+      color: var(--success-color);
+    }
+
+    /* Tabs styling */
+    .tab-container {
+      display: flex;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 1.5rem;
+      gap: 1rem;
+      width: 100%;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 0.75rem 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--brand-color);
+    }
+
+    .tab-btn.active {
+      color: var(--brand-color);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--brand-color);
+    }
+
+    .tab-content {
+      display: none;
+      width: 100%;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Forms styling */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    @media (min-width: 480px) {
+      .form-row.grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .form-row.grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      margin-bottom: 0.75rem;
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .form-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      text-align: left;
+    }
+
+    .form-input {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      background-color: var(--card-bg);
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      transition: border-color 0.2s;
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--brand-color);
+      box-shadow: 0 0 0 3px var(--brand-light);
+    }
+  </style>
 </head>
 
-<body class="h-full flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white">
+<body>
 
   <!-- Header -->
-  <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="flex h-3 w-3 relative">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+  <header>
+    <div class="header-container">
+      <div class="header-logo">
+        <span class="status-dot-container">
+          <span class="status-ping"></span>
+          <span class="status-dot"></span>
         </span>
-        <span
-          class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-          EUDI Wallet Relying Party Sandbox
-        </span>
+        <span class="header-title">EUDI Wallet Relying Party Sandbox</span>
       </div>
-      <div class="flex items-center gap-2">
-        <span
-          class="px-2.5 py-1 text-xs font-semibold rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20">
-          eIDAS 2.0 Reference
-        </span>
+      <div>
+        <span class="header-badge">eIDAS 2.0 Reference</span>
       </div>
     </div>
   </header>
 
   <!-- Main Content Grid -->
-  <main
-    class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+  <main>
+    <!-- Linker Bereich: QR-Code & Steuerungs-Panel (col-span-5) -->
+    <section class="col-span-5 space-y-6">
+      <div class="card">
+        <div class="card-glow"></div>
+        <div class="tab-container">
+          <button class="tab-btn active" id="tab-btn-presentation" onclick="switchTab('presentation')">Präsentation
+            (RP)</button>
+          <button class="tab-btn" id="tab-btn-issuance" onclick="switchTab('issuance')">Ausstellung (Issuer)</button>
+        </div>
 
-    <!-- QR code & control panel -->
-    <section class="lg:col-span-5 space-y-6">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-32 h-32 bg-brand-500/5 rounded-full blur-2xl -z-10"></div>
-        <h2 class="text-xl font-bold tracking-tight text-white mb-2">Prove Identity</h2>
-        <p class="text-slate-400 text-sm mb-6">
-          Click on the button on initiate an onboarding session. Scan the QR code with the wallet app or test the flow
-          using a simulator.
-        </p>
+        <!-- TAB 1: PRESENTATION CONTENT -->
+        <div id="tab-content-presentation" class="tab-content active">
+          <h2 class="card-title">Identität nachweisen</h2>
+          <p class="card-desc">
+            Klicken Sie auf den Button, um eine Onboarding-Session zu initiieren. Scannen Sie den Barcode mit der EUDI
+            Wallet-App oder testen Sie den Server über einen Krypto-Simulator.
+          </p>
+          <div class="trigger-group">
+            <button id="btn-initiate" onclick="startOnboarding()" class="btn-primary">
+              <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+              Authentisierung starten
+            </button>
+          </div>
+        </div>
 
-        <!-- Onboarding Trigger -->
-        <div class="space-y-6 flex flex-col items-center">
-          <button id="btn-initiate" onclick="startOnboarding()"
-            class="w-full py-3 px-4 bg-brand-500 hover:bg-brand-600 active:scale-[0.98] text-white font-semibold rounded-xl shadow-lg shadow-brand-500/20 transition-all flex items-center justify-center gap-2">
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round"
-                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
-            Start Authentication
-          </button>
+        <!-- TAB 2: ISSUANCE CONTENT -->
+        <div id="tab-content-issuance" class="tab-content">
+          <h2 class="card-title" id="issuance-title">Belege ausstellen (OpenID4VCI)</h2>
+          <p class="card-desc" id="issuance-desc">
+            Definieren Sie hier Ihre benutzerdefinierten Nachweisdaten und Gültigkeitsdauer. Klicken Sie dann auf
+            Angebot erzeugen, um den Credential Offer QR-Code anzuzeigen.
+          </p>
 
-          <!-- QR code area -->
-          <div id="qr-container"
-            class="hidden flex flex-col items-center p-6 bg-white rounded-xl border border-slate-200">
-            <img id="qr-image" src="" alt="EUDI QR Code" class="w-48 h-48 sm:w-56 sm:h-56">
-            <span class="text-[10px] text-slate-500 font-mono mt-3 select-all truncate max-w-[200px]"
-              id="qr-text"></span>
+          <!-- Nachweistyp Dropdown -->
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label class="form-label" for="iss-credential-type">Nachweistyp (Credential Type)</label>
+            <select class="form-input" id="iss-credential-type" onchange="toggleIssuanceFields()"
+              style="border: 2px solid var(--brand-color); font-weight: bold;">
+              <option value="dc+sd-jwt">Personalausweis (PID / SD-JWT VC)</option>
+              <option value="mso_mdoc">Führerschein (mDL / ISO mdoc)</option>
+            </select>
           </div>
 
-          <!-- Loader / status polling -->
-          <div id="status-container"
-            class="hidden flex items-center gap-3 py-3 px-4 bg-slate-800/40 rounded-xl border border-slate-700/60 w-full justify-center">
-            <svg class="animate-spin h-5 w-5 text-brand-500" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <div class="form-row grid-2">
+            <div class="form-group">
+              <label class="form-label" for="iss-given-name">Vorname</label>
+              <input class="form-input" type="text" id="iss-given-name" value="Erika">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="iss-family-name">Nachname</label>
+              <input class="form-input" type="text" id="iss-family-name" value="Mustermann">
+            </div>
+          </div>
+
+          <div class="form-row grid-2">
+            <div class="form-group">
+              <label class="form-label" for="iss-birthdate">Geburtsdatum</label>
+              <input class="form-input" type="date" id="iss-birthdate" value="1998-08-12">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="iss-country">Land / Ausstellungsland</label>
+              <input class="form-input" type="text" id="iss-country" value="DE">
+            </div>
+          </div>
+
+          <!-- PID-Only Fields -->
+          <div id="iss-pid-only-fields" style="display: block;">
+            <div class="form-row grid-2">
+              <div class="form-group">
+                <label class="form-label" for="iss-nationalities">Staatsangehörigkeit</label>
+                <input class="form-input" type="text" id="iss-nationalities" value="DE">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="iss-street">Straße &amp; Hausnummer</label>
+                <input class="form-input" type="text" id="iss-street" value="Heidestraße 17">
+              </div>
+            </div>
+
+            <div class="form-row grid-3">
+              <div class="form-group">
+                <label class="form-label" for="iss-zip">PLZ</label>
+                <input class="form-input" type="text" id="iss-zip" value="50667">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="iss-locality">Ort</label>
+                <input class="form-input" type="text" id="iss-locality" value="Köln">
+              </div>
+            </div>
+          </div>
+
+          <!-- mDL-Only Fields -->
+          <div id="iss-mdl-only-fields"
+            style="display: none; margin-bottom: 1.25rem; background-color: var(--brand-light); padding: 1rem; border-radius: 0.75rem; border: 1px dashed var(--brand-color);">
+            <div class="form-group">
+              <label class="form-label" for="iss-privileges" style="color: var(--brand-color);">Fahrerlaubnisklassen
+                (z.B. A, B, C, CE)</label>
+              <input class="form-input" type="text" id="iss-privileges" value="B">
+            </div>
+          </div>
+
+          <div class="form-row grid-2" style="margin-top: 0.5rem; align-items: end;">
+            <div class="form-group">
+              <label class="form-label" for="iss-validity">Gültigkeit (Tage)</label>
+              <input class="form-input" type="number" id="iss-validity" value="90">
+            </div>
+            <div class="form-group" style="justify-content: flex-end;">
+              <button id="btn-initiate-issuance" onclick="startIssuance()" class="btn-primary">
+                Angebot erzeugen
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SHARED QR & STATUS AREA -->
+        <div class="trigger-group" style="margin-top: 1.5rem;">
+          <!-- QR-Code Area -->
+          <div id="qr-container" class="qr-wrapper hidden">
+            <img id="qr-image" src="" alt="EUDI QR Code" class="qr-code-img">
+            <span class="qr-code-text" id="qr-text"></span>
+
+            <!-- Session ID & Copy Widget -->
+            <div class="session-widget">
+              <span class="session-widget-title" id="session-title-label">Onboarding Session ID</span>
+              <div class="session-id-container">
+                <span class="session-id-text" id="session-id-display">N/A</span>
+                <button onclick="copySessionId()" class="btn-copy" title="Session-ID kopieren">
+                  <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                    id="copy-icon">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                  </svg>
+                  <svg class="btn-icon success-text hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    stroke-width="2" id="check-icon">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Loader / Polling Status -->
+          <div id="status-container" class="status-widget hidden">
+            <svg class="spinner" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+                style="opacity: 0.25;"></circle>
               <path class="opacity-75" fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-              </path>
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                style="opacity: 0.75;"></path>
             </svg>
-            <span class="text-sm font-medium text-slate-300" id="status-text">Awaiting wallet callback...</span>
+            <span class="status-text" id="status-text">Warte auf Wallet-Callback...</span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Results & Audit Panel -->
-    <section class="lg:col-span-7 space-y-6">
+    <!-- Rechter Bereich: Ergebnisse & Audit-Panel (col-span-7) -->
+    <section class="col-span-7 space-y-6">
 
       <!-- Default Placeholder -->
-      <div id="placeholder"
-        class="bg-slate-900 border border-dashed border-slate-800 rounded-2xl p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
-        <div class="h-16 w-16 bg-slate-800/50 text-slate-400 rounded-full flex items-center justify-center mb-4">
-          <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <div id="placeholder" class="placeholder">
+        <div class="placeholder-icon">
+          <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"
+            style="height: 2rem; width: 2rem;">
             <path stroke-linecap="round" stroke-linejoin="round"
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h3 class="text-lg font-semibold text-white">No active onboarding data</h3>
-        <p class="text-slate-500 text-sm mt-1 max-w-sm">
-          Initiate the authentcation on the left side. As soon as the test data set has been trasnmitted, You'll see the
-          verified profile here.
+        <h3 class="placeholder-title">Keine aktiven Onboarding-Daten</h3>
+        <p class="placeholder-desc">
+          Starten Sie die Authentisierung auf der linken Seite. Sobald Erikas Daten übermittelt werden, erscheint hier
+          der verifizierte Profilauszug.
         </p>
       </div>
 
-      <!-- Profile View & Audit Panel (SUCCESS state) -->
-      <div id="success-view" class="hidden space-y-6 animate-fade-in">
+      <!-- Profile View & Audit Panel (Zustand: SUCCESS) -->
+      <div id="success-view" class="success-view hidden">
 
-        <!-- transport channel & encryption panel -->
-        <div id="transport-security-card"
-          class="rounded-2xl border p-5 shadow-lg bg-slate-900 overflow-hidden relative">
-          <div class="flex items-start gap-4">
-            <div id="transport-icon-container" class="p-2.5 rounded-xl">
-              <!-- SVG - filled dynamically -->
-            </div>
-            <div class="space-y-1">
-              <h3 class="text-md font-bold text-white flex items-center gap-2">
-                Transport security (channel)
-                <span id="transport-badge" class="px-2 py-0.5 text-[10px] font-bold rounded-full"></span>
-              </h3>
-              <p id="transport-desc" class="text-xs text-slate-400 leading-relaxed"></p>
-            </div>
+        <!-- Transportkanal & Verschlüsselung Panel -->
+        <div id="transport-security-card" class="transport-security-card">
+          <div id="transport-icon-container" class="transport-icon-wrapper">
+            <!-- SVG wird dynamisch befüllt -->
+          </div>
+          <div class="transport-info">
+            <h3 class="transport-title">
+              Transport-Sicherheit (Kanal)
+              <span id="transport-badge" class="transport-badge"></span>
+            </h3>
+            <p id="transport-desc" class="transport-desc"></p>
           </div>
         </div>
 
-        <!-- dynamic document profile (PID or mDL) -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-          <div id="credential-header"
-            class="bg-gradient-to-r from-brand-600 to-indigo-700 p-5 flex items-center justify-between transition-colors duration-500">
-            <div class="flex items-center gap-3.5">
-              <div id="credential-icon-container" class="p-2 bg-white/10 text-white rounded-lg border border-white/20">
-                <!-- dynamic SVG icon -->
+        <!-- Dynamisches Dokumenten-Profil (PID oder mDL) -->
+        <div class="credential-card">
+          <div id="credential-header" class="credential-header">
+            <div class="credential-header-left">
+              <div id="credential-icon-container" class="credential-icon-container">
+                <!-- Dynamisches SVG Icon -->
               </div>
               <div>
-                <p id="credential-type" class="text-[10px] font-bold uppercase tracking-wider text-brand-100/80">EUDI
-                  Personal Identification Data (PID)</p>
-                <h3 id="credential-title" class="text-lg font-extrabold text-white">Sample (mock) identity</h3>
+                <p id="credential-type" class="credential-type-label">EUDI Personal Identification Data (PID)</p>
+                <h3 id="credential-title" class="credential-title-text">Muster-Identität</h3>
               </div>
             </div>
-            <span class="px-2.5 py-1 text-xs font-bold rounded-full bg-white/10 text-white border border-white/20">
-              Status: verified
-            </span>
+            <span class="credential-badge">Status: Verifiziert</span>
           </div>
 
-          <div class="p-6">
-            <!-- PID grid (SD-JWT VC) -->
-            <div id="claims-pid-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="space-y-3.5">
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">First name</label>
-                  <p class="text-sm font-semibold text-white" id="claim-given_name">-</p>
+          <div class="credential-body">
+            <!-- PID Grid (SD-JWT VC) -->
+            <div id="claims-pid-container" class="claims-grid">
+              <div class="space-y-6">
+                <div class="claim-group">
+                  <label class="claim-label">Vorname</label>
+                  <p class="claim-value" id="claim-given_name">-</p>
                 </div>
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Last name</label>
-                  <p class="text-sm font-semibold text-white" id="claim-family_name">-</p>
+                <div class="claim-group">
+                  <label class="claim-label">Nachname</label>
+                  <p class="claim-value" id="claim-family_name">-</p>
                 </div>
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Date of birth</label>
-                  <p class="text-sm font-semibold text-white" id="claim-birthdate">-</p>
+                <div class="claim-group">
+                  <label class="claim-label">Geburtsdatum</label>
+                  <p class="claim-value" id="claim-birthdate">-</p>
                 </div>
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Age verification</label>
-                  <p class="text-sm font-semibold text-white" id="claim-is_over_18">-</p>
+                <div class="claim-group">
+                  <label class="claim-label">Altersbestätigung (Volljährigkeit)</label>
+                  <p class="claim-value" id="claim-is_over_18">-</p>
                 </div>
               </div>
 
-              <div class="space-y-3.5 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Nationality</label>
-                  <p class="text-sm font-semibold text-white" id="claim-nationalities">-</p>
+              <div class="claims-right-col space-y-6">
+                <div class="claim-group">
+                  <label class="claim-label">Staatsangehörigkeit</label>
+                  <p class="claim-value" id="claim-nationalities">-</p>
                 </div>
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Residence /
-                    address</label>
-                  <div class="text-sm text-slate-300 space-y-0.5" id="claim-address">-</div>
+                <div class="claim-group">
+                  <label class="claim-label">Wohnsitz / Meldeadresse</label>
+                  <div class="claim-value" id="claim-address"
+                    style="font-weight: normal; color: var(--text-secondary);">-</div>
                 </div>
               </div>
             </div>
 
-            <!-- mDL grid (ISO mdoc) -->
-            <div id="claims-mdl-container" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="space-y-3.5">
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">First name</label>
-                  <p class="text-sm font-semibold text-white" id="mdl-given_name">-</p>
+            <!-- mDL Grid (ISO mdoc) -->
+            <div id="claims-mdl-container" class="claims-grid hidden">
+              <div class="space-y-6">
+                <div class="claim-group">
+                  <label class="claim-label">Vorname</label>
+                  <p class="claim-value" id="mdl-given_name">-</p>
                 </div>
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Last name</label>
-                  <p class="text-sm font-semibold text-white" id="mdl-family_name">-</p>
+                <div class="claim-group">
+                  <label class="claim-label">Nachname</label>
+                  <p class="claim-value" id="mdl-family_name">-</p>
                 </div>
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Date of birth</label>
-                  <p class="text-sm font-semibold text-white" id="mdl-birthdate">-</p>
+                <div class="claim-group">
+                  <label class="claim-label">Geburtsdatum</label>
+                  <p class="claim-value" id="mdl-birthdate">-</p>
                 </div>
               </div>
 
-              <div class="space-y-3.5 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-6">
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">License class</label>
-                  <div class="flex items-center gap-2 mt-1">
-                    <span
-                      class="px-3 py-1 bg-pink-500/10 text-pink-400 font-extrabold rounded-lg border border-pink-500/20 text-xs"
-                      id="mdl-privileges">B</span>
-                    <span class="text-xs text-slate-400">PKW (Klasse B)</span>
+              <div class="claims-right-col space-y-6">
+                <div class="claim-group">
+                  <label class="claim-label">Fahrerlaubnisklassen</label>
+                  <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                    <span id="mdl-privileges"
+                      style="padding: 0.25rem 0.5rem; background-color: rgba(236, 72, 153, 0.1); color: var(--pink-color); border: 1px solid rgba(236, 72, 153, 0.2); font-weight: bold; border-radius: 0.375rem; font-size: 0.75rem;">B</span>
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">Kraftwagen bis 3,5t (Klasse
+                      B)</span>
                   </div>
                 </div>
-                <div>
-                  <label class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Issuing country</label>
-                  <p class="text-sm font-semibold text-white" id="mdl-country">-</p>
+                <div class="claim-group">
+                  <label class="claim-label">Ausstellungsland</label>
+                  <p class="claim-value" id="mdl-country">-</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- audit log -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <h3 class="text-md font-bold text-white mb-4 flex items-center gap-2">
-            <svg class="h-5 w-5 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <!-- 4 Säulen Audit Log -->
+        <div class="pillars-card">
+          <h3 class="pillars-header">
+            <svg class="btn-icon" style="color: var(--brand-color);" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round"
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            Cryptographic verification
+            Kryptografische Verifizierungs-Säulen
           </h3>
 
-          <div class="space-y-4">
+          <div class="pillars-list">
             <!-- Säule 1 -->
-            <div class="flex items-start gap-3 p-3 bg-slate-800/30 rounded-xl border border-slate-800/80">
-              <div class="text-emerald-500 mt-0.5">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9
-                    10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z\" clip-rule=\"evenodd\" />
+            <div class="pillar-row">
+              <div class="pillar-icon-wrapper">
+                <svg class="btn-icon" fill="currentColor" viewBox="0 0 20 20" style="height: 1.25rem; width: 1.25rem;">
+                  <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd" />
                 </svg>
               </div>
-              <div class="space-y-0.5">
-                <p class="text-xs font-bold text-white">Pillar 1: Issuer authenticity</p>
-                <p class="text-[11px] text-slate-400" id="pillar1-desc">Digital ECDSA P256 signature of the issuer
-                  (Bundesdruckerei / PID or mDL issuer) has been successfully verified against federal trust root.</p>
+              <div class="pillar-content">
+                <p class="pillar-title">Säule 1: Aussteller-Authentizität (Issuer Authenticity)</p>
+                <p class="pillar-desc" id="pillar1-desc">Digitale ECDSA-P256-Signatur des Herausgebers (Bundesdruckerei
+                  / PID- oder mDL-Herausgeber) erfolgreich gegen staatliche Trust-Root verifiziert.</p>
               </div>
             </div>
 
-            <!-- Pillar 2 -->
-            <div class="flex items-start gap-3 p-3 bg-slate-800/30 rounded-xl border border-slate-800/80">
-              <div class="text-emerald-500 mt-0.5">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9
-                    10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z\" clip-rule=\"evenodd\" />
+            <!-- Säule 2 -->
+            <div class="pillar-row">
+              <div class="pillar-icon-wrapper">
+                <svg class="btn-icon" fill="currentColor" viewBox="0 0 20 20" style="height: 1.25rem; width: 1.25rem;">
+                  <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd" />
                 </svg>
               </div>
-              <div class="space-y-0.5">
-                <p class="text-xs font-bold text-white" id="pillar2-title">Pillar 2: (Device / Holder Key
-                  Binding)</p>
-                <p class="text-[11px] text-slate-400" id="pillar2-desc">Die kryptografische Geräteprüfung wurde
-                  erfolgreich validiert. Die Bindung an das hardwarebasierte Secure Element des Nutzers ist bewiesen.
-                </p>
+              <div class="pillar-content">
+                <p class="pillar-title" id="pillar2-title">Säule 2: Gerätebindung (Device / Holder Key Binding)</p>
+                <p class="pillar-desc" id="pillar2-desc">Die kryptografische Geräteprüfung wurde erfolgreich validiert.
+                  Die Bindung an das hardwarebasierte Secure Element des Nutzers ist bewiesen.</p>
               </div>
             </div>
 
             <!-- Säule 3 -->
-            <div class="flex items-start gap-3 p-3 bg-slate-800/30 rounded-xl border border-slate-800/80">
-              <div class="text-emerald-500 mt-0.5">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9
-                    10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z\" clip-rule=\"evenodd\" />
+            <div class="pillar-row">
+              <div class="pillar-icon-wrapper">
+                <svg class="btn-icon" fill="currentColor" viewBox="0 0 20 20" style="height: 1.25rem; width: 1.25rem;">
+                  <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd" />
                 </svg>
               </div>
-              <div class="space-y-0.5">
-                <p class="text-xs font-bold text-white">Säule 3: Echtzeit-Sperrstatus (Revocation Checks)</p>
-                <p class="text-[11px] text-slate-400">Sperrabfrage (Token Status List für SD-JWT / CRL für mdoc)
-                  durchgeführt. Der digitale Ausweis ist uneingeschränkt aktiv und gültig.</p>
+              <div class="pillar-content">
+                <p class="pillar-title">Säule 3: Echtzeit-Sperrstatus (Revocation Checks)</p>
+                <p class="pillar-desc">Sperrabfrage (Token Status List für SD-JWT / CRL für mdoc) durchgeführt. Der
+                  digitale Ausweis ist uneingeschränkt aktiv und gültig.</p>
               </div>
             </div>
 
             <!-- Säule 4 -->
-            <div class="flex items-start gap-3 p-3 bg-slate-800/30 rounded-xl border border-slate-800/80">
-              <div class="text-emerald-500 mt-0.5">
-                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule=\"evenodd\" d=\"M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9
-                    10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z\" clip-rule=\"evenodd\" />
+            <div class="pillar-row">
+              <div class="pillar-icon-wrapper">
+                <svg class="btn-icon" fill="currentColor" viewBox="0 0 20 20" style="height: 1.25rem; width: 1.25rem;">
+                  <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd" />
                 </svg>
               </div>
-              <div class="space-y-0.5">
-                <p class="text-xs font-bold text-white">Säule 4: App-Attestierung (Wallet Integrity Validation)</p>
-                <p class="text-[11px] text-slate-400">Wallet Instance Attestation (WIA) erfolgreich geprüft. Die
-                  anfragende Wallet-Anwendung ist im eIDAS-WIA-Verzeichnis als zertifizierte Original-App registriert.
-                </p>
+              <div class="pillar-content">
+                <p class="pillar-title">Säule 4: App-Attestierung (Wallet Integrity Validation)</p>
+                <p class="pillar-desc">Wallet Instance Attestation (WIA) erfolgreich geprüft. Die anfragende
+                  Wallet-Anwendung ist im eIDAS-WIA-Verzeichnis als zertifizierte Original-App registriert.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Collapsible Cryptographic Audit Trail -->
+        <div class="audit-panel">
+          <div class="audit-panel-header" onclick="toggleCryptoAudit()">
+            <h3 class="audit-panel-title">
+              <svg class="btn-icon" style="color: var(--brand-color);" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Kryptografischer Audit-Pfad (Entwickler-Analyse)
+            </h3>
+            <span class="audit-panel-arrow" id="crypto-arrow">▼</span>
+          </div>
+          <div class="audit-panel-content hidden" id="crypto-audit-content">
+            <!-- SD-JWT Audit View -->
+            <div id="sd-jwt-audit" class="hidden">
+              <h4 class="audit-section-title">Enthüllte Attribute (Disclosures) & Hash-Matching</h4>
+              <div class="table-responsive">
+                <table class="disclosure-table">
+                  <thead>
+                    <tr>
+                      <th>Attribut</th>
+                      <th>Klartext-Wert</th>
+                      <th>Salz (Salt)</th>
+                      <th>SHA-256 Hash</th>
+                      <th style="text-align:right">Integrität</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sd-disclosure-table-body">
+                    <!-- Dynamisch befüllt -->
+                  </tbody>
+                </table>
+              </div>
+
+              <h4 class="audit-section-title" style="margin-top: 1.5rem;">Vom Wallet einbehaltene Attribute
+                (Minimierung)</h4>
+              <div id="sd-hidden-list" class="hidden-hash-container">
+                <!-- Dynamisch befüllt -->
+              </div>
+            </div>
+
+            <!-- mdoc Audit View -->
+            <div id="mdoc-audit" class="hidden">
+              <h4 class="audit-section-title">ISO/IEC 18013-5 SessionTranscript & Handover</h4>
+              <div
+                style="background-color: #f1f5f9; padding: 1rem; border-radius: 0.5rem; font-family: monospace; font-size: 0.75rem; border: 1px solid var(--border-color); line-height: 1.5; color: var(--text-secondary);">
+                <p style="margin: 0 0 0.5rem 0; font-weight: bold; color: var(--brand-color);">✔ SessionTranscript
+                  Handshake erfolgreich verifiziert</p>
+                <p style="margin: 0 0 0.5rem 0;">HandoverInfo: ["x509_san_dns:client.example.org", nonce, jwkThumbprint,
+                  responseUri]</p>
+                <p style="margin: 0;">Die kryptografische Gerätebindung wurde durch das mdoc-DeviceSignature-Verfahren
+                  über das SessionTranscript vollständig validiert.</p>
               </div>
             </div>
           </div>
@@ -307,8 +1389,8 @@
   </main>
 
   <!-- Footer -->
-  <footer class="border-t border-slate-800/60 bg-slate-950 py-6 text-center text-xs text-slate-500">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+  <footer>
+    <div class="footer-container">
       <p>EUDI Wallet Sandbox © 2026. Lizenziert unter Creative Commons Attribution 4.0 International.</p>
     </div>
   </footer>
@@ -318,14 +1400,139 @@
     let pollInterval = null;
     let activeSessionId = null;
 
+    function switchTab(tabId) {
+      // Reset active tab button
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('tab-btn-' + tabId).classList.add('active');
+
+      // Reset active tab content
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById('tab-content-' + tabId).classList.add('active');
+
+      // Clean up shared areas
+      document.getElementById('qr-container').classList.add('hidden');
+      document.getElementById('status-container').classList.add('hidden');
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      activeSessionId = null;
+      resetUI();
+    }
+
+    function startIssuance() {
+      document.getElementById('btn-initiate-issuance').disabled = true;
+      document.getElementById('status-container').classList.remove('hidden');
+      document.getElementById('status-text').innerText = "Erstelle Ausweis-Angebot...";
+      document.getElementById('qr-container').classList.add('hidden');
+
+      const type = document.getElementById('iss-credential-type').value;
+      let claims = {};
+      const validityDays = parseInt(document.getElementById('iss-validity').value, 10) || 90;
+
+      if (type === 'mso_mdoc') {
+        claims = {
+          given_name: document.getElementById('iss-given-name').value,
+          family_name: document.getElementById('iss-family-name').value,
+          birth_date: document.getElementById('iss-birthdate').value,
+          driving_privileges: document.getElementById('iss-privileges').value,
+          issuing_country: document.getElementById('iss-country').value
+        };
+      } else {
+        claims = {
+          given_name: document.getElementById('iss-given-name').value,
+          family_name: document.getElementById('iss-family-name').value,
+          birthdate: document.getElementById('iss-birthdate').value,
+          is_over_18: true,
+          nationalities: [document.getElementById('iss-nationalities').value],
+          address: {
+            street_address: document.getElementById('iss-street').value,
+            locality: document.getElementById('iss-locality').value,
+            postal_code: document.getElementById('iss-zip').value,
+            country: document.getElementById('iss-country').value
+          }
+        };
+      }
+
+      fetch('/api/issuance/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ claims, validityDays, format: type })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            activeSessionId = data.sessionId;
+
+            // QR-Code anzeigen
+            document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(data.credentialOfferUrl);
+            document.getElementById('qr-text').innerText = data.credentialOfferUrl;
+
+            // Session ID anzeigen
+            document.getElementById('session-title-label').innerText = "Ausstellungs-Session ID";
+            document.getElementById('session-id-display').innerText = data.sessionId;
+
+            document.getElementById('qr-container').classList.remove('hidden');
+            document.getElementById('status-text').innerText = "Warte auf Wallet-Kopplung (Ausstellung)...";
+
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(() => {
+              fetch(`/api/presentation/status?sid=${data.sessionId}`)
+                .then(r => r.json())
+                .then(statusData => {
+                  if (statusData.status === 'SUCCESS') {
+                    clearInterval(pollInterval);
+                    document.getElementById('status-container').classList.add('hidden');
+                    alert("Ausweis erfolgreich an Wallet ausgestellt!");
+                    resetUI();
+                  } else if (statusData.status === 'FAILED') {
+                    clearInterval(pollInterval);
+                    alert("Ausstellung fehlgeschlagen: " + statusData.errors.join(", "));
+                    resetUI();
+                  }
+                })
+                .catch(err => console.error("Issuance polling error: ", err));
+            }, 2000);
+          } else {
+            alert("Sitzung konnte nicht initiiert werden.");
+            resetUI();
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert("Verbindung zum Server fehlgeschlagen.");
+          resetUI();
+        });
+    }
+
+    function toggleIssuanceFields() {
+      const type = document.getElementById('iss-credential-type').value;
+      const pidFields = document.getElementById('iss-pid-only-fields');
+      const mdlFields = document.getElementById('iss-mdl-only-fields');
+
+      if (type === 'mso_mdoc') {
+        pidFields.style.display = 'none';
+        mdlFields.style.display = 'block';
+        document.getElementById('iss-validity').value = '3650'; // Default 10 years for license
+      } else {
+        pidFields.style.display = 'block';
+        mdlFields.style.display = 'none';
+        document.getElementById('iss-validity').value = '90'; // Default 90 days for PID
+      }
+    }
+
     function startOnboarding() {
+      document.getElementById('session-title-label').innerText = "Onboarding Session ID";
+      document.getElementById('btn-initiate').disabled = true;
       // UI in Ladezustand versetzen
       document.getElementById('btn-initiate').disabled = true;
       document.getElementById('status-container').classList.remove('hidden');
       document.getElementById('qr-container').classList.add('hidden');
 
       // Onboarding Session initiieren
-      fetch('http://localhost:3000/api/presentation/initiate')
+      fetch('/api/presentation/initiate')
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -334,6 +1541,10 @@
             // QR-Code anzeigen
             document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(data.qrCodeUrl);
             document.getElementById('qr-text').innerText = data.qrCodeUrl;
+
+            // Session ID anzeigen
+            document.getElementById('session-id-display').innerText = data.sessionId;
+
             document.getElementById('qr-container').classList.remove('hidden');
 
             // Polling starten
@@ -390,14 +1601,14 @@
       const p2Desc = document.getElementById('pillar2-desc');
 
       if (isMdoc) {
-        // mDL / mdoc Style (Führerschein-Design in Pink/Rosa)
-        credentialHeader.className = "bg-gradient-to-r from-pink-600 to-rose-700 p-5 flex items-center justify-between transition-colors duration-500";
+        // mDL / mdoc Style
+        credentialHeader.className = "credential-header mdoc-style";
         credentialType.innerText = "EUDI Mobile Driving Licence (mDL)";
         credentialTitle.innerText = "Fahrerlaubnis (Klasse B)";
 
         // mDL Icon (Lenkrad / Auto)
         credentialIcon.innerHTML = `
-                    <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="btn-icon" style="color: white; height: 1.5rem; width: 1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
                 `;
@@ -420,14 +1631,14 @@
         document.getElementById('sd-jwt-audit').classList.add('hidden');
         document.getElementById('mdoc-audit').classList.remove('hidden');
       } else {
-        // PID / SD-JWT Style (Personalausweis-Design in Blau)
-        credentialHeader.className = "bg-gradient-to-r from-brand-600 to-indigo-700 p-5 flex items-center justify-between transition-colors duration-500";
+        // PID / SD-JWT Style
+        credentialHeader.className = "credential-header pid-style";
         credentialType.innerText = "EUDI Personal Identification Data (PID)";
         credentialTitle.innerText = "Personen-Identitätsnachweis";
 
         // PID Icon (Ausweis)
         credentialIcon.innerHTML = `
-                    <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="btn-icon" style="color: white; height: 1.5rem; width: 1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.333 0 4 .667 4 2V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-1c0-1.333 2.667-2 4-2z" />
                     </svg>
                 `;
@@ -444,9 +1655,9 @@
         const address = claims.address || {};
         if (typeof address === 'object') {
           document.getElementById('claim-address').innerHTML = `
-                        <p class="font-semibold text-white">${address.street_address || ''}</p>
-                        <p>${address.postal_code || ''} ${address.locality || ''}</p>
-                        <p class="text-xs text-slate-400">${address.country || ''}</p>
+                        <p style="font-weight: 600; color: var(--text-primary); margin: 0 0 0.25rem 0;">${address.street_address || ''}</p>
+                        <p style="margin: 0 0 0.25rem 0;">${address.postal_code || ''} ${address.locality || ''}</p>
+                        <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">${address.country || ''}</p>
                     `;
         } else {
           document.getElementById('claim-address').innerText = address || 'N/A';
@@ -476,13 +1687,13 @@
           revealedHashes.add(item.hash);
 
           const tr = document.createElement('tr');
-          tr.className = "hover:bg-slate-800/40 border-b border-slate-800/40 transition-colors";
+          tr.className = "disclosure-row";
           tr.innerHTML = `
-                        <td class="py-2.5 pr-2 font-bold text-indigo-300">${key}</td>
-                        <td class="py-2.5 px-2 text-slate-300 truncate max-w-[120px]" title="${val}">${val}</td>
-                        <td class="py-2.5 px-2 text-slate-500 truncate max-w-[100px]" title="${salt}">${salt}</td>
-                        <td class="py-2.5 px-2 text-slate-400 font-mono text-[9px] truncate max-w-[180px]" title="${item.hash}">${item.hash}</td>
-                        <td class="py-2.5 pl-2 text-right text-emerald-400 font-bold">✔ Bestanden</td>
+                        <td style="font-weight: 700; color: var(--indigo-color);">${key}</td>
+                        <td style="color: var(--text-primary); font-weight: 600;">${val}</td>
+                        <td style="color: var(--text-secondary);">${salt}</td>
+                        <td style="font-family: monospace; font-size: 0.7rem; color: var(--text-secondary);">${item.hash}</td>
+                        <td style="text-align: right; color: var(--success-color); font-weight: bold;">✔ Bestanden</td>
                     `;
           disclosureBody.appendChild(tr);
         });
@@ -496,17 +1707,17 @@
           if (!revealedHashes.has(hash)) {
             hiddenCount++;
             const div = document.createElement('div');
-            div.className = "flex items-center justify-between p-2 bg-slate-950/40 rounded-lg border border-slate-800/40 font-mono text-[9px]";
+            div.className = "hidden-hash-item";
             div.innerHTML = `
-                            <span class="text-slate-500 truncate max-w-[200px]" title="${hash}">SHA-256: ${hash}</span>
-                            <span class="px-2 py-0.5 text-[8px] font-bold rounded-full bg-slate-800 text-slate-400 border border-slate-700/50">Minimiert (Versteckt)</span>
+                            <span style="font-family: monospace; font-size: 0.7rem;">SHA-256: ${hash}</span>
+                            <span class="hidden-hash-badge">Minimiert (Versteckt)</span>
                         `;
             hiddenList.appendChild(div);
           }
         });
 
         if (hiddenCount === 0) {
-          hiddenList.innerHTML = `<p class="col-span-2 text-[10px] text-slate-500 italic">Keine unenthüllten Attribute. Alle übermittelten Hashes wurden offengelegt.</p>`;
+          hiddenList.innerHTML = `<p style="font-size: 0.75rem; color: var(--text-secondary); font-style: italic;">Keine unenthüllten Attribute. Alle übermittelten Hashes wurden offengelegt.</p>`;
         }
       }
 
@@ -518,26 +1729,26 @@
 
       if (data.isEncrypted) {
         // JWE-Verschlüsselter Status
-        transportCard.className = "rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-5 shadow-lg overflow-hidden relative";
-        iconContainer.className = "p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400";
+        transportCard.className = "transport-security-card encrypted-style";
+        iconContainer.className = "transport-icon-wrapper encrypted";
         iconContainer.innerHTML = `
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                 `;
-        badge.className = "px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        badge.className = "transport-badge encrypted";
         badge.innerText = "Ende-zu-Ende verschlüsselt (JWE)";
         desc.innerText = "Die Identitätsdaten wurden auf Anwendungsebene via JSON Web Encryption (JWE) mit dem elliptischen ECDH-Sitzungsschlüssel der Onboarding-Sitzung verschlüsselt. Ein Mitlesen der personenbezogenen Daten auf dem Callback-Kanal (direct_post.jwt) war unmöglich.";
       } else {
         // Unverschlüsselter Status (Plain Fallback / Mock)
-        transportCard.className = "rounded-2xl border border-amber-500/20 bg-amber-950/10 p-5 shadow-lg overflow-hidden relative";
-        iconContainer.className = "p-2.5 rounded-xl bg-amber-500/10 text-amber-400";
+        transportCard.className = "transport-security-card plain-style";
+        iconContainer.className = "transport-icon-wrapper plain";
         iconContainer.innerHTML = `
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                 `;
-        badge.className = "px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        badge.className = "transport-badge plain";
         badge.innerText = "Fallback-Kanal (Unverschlüsselt)";
         desc.innerText = "Die Identitätsdaten wurden im Klartext über den unverschlüsselten direct_post Endpoint empfangen. Dies ist der Fallback-Kanal für unkomplizierte lokale Demozwecke und Shell-basierte Wallet-Simulationsskripte im Test-Harness.";
       }
@@ -557,7 +1768,72 @@
 
     function resetUI() {
       document.getElementById('btn-initiate').disabled = false;
+      if (document.getElementById('btn-initiate-issuance')) {
+        document.getElementById('btn-initiate-issuance').disabled = false;
+      }
       document.getElementById('status-container').classList.add('hidden');
+    }
+
+    function copySessionId() {
+      if (!activeSessionId) return;
+
+      const successHandler = () => {
+        const copyIcon = document.getElementById('copy-icon');
+        const checkIcon = document.getElementById('check-icon');
+        if (copyIcon && checkIcon) {
+          copyIcon.classList.add('hidden');
+          checkIcon.classList.remove('hidden');
+          setTimeout(() => {
+            copyIcon.classList.remove('hidden');
+            checkIcon.classList.add('hidden');
+          }, 2000);
+        }
+      };
+
+      const errorHandler = (err) => {
+        console.error('Kopieren fehlgeschlagen: ', err);
+        const displaySpan = document.getElementById('session-id-display');
+        if (displaySpan) {
+          const range = document.createRange();
+          range.selectNodeContents(displaySpan);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(activeSessionId)
+          .then(successHandler)
+          .catch(() => {
+            fallbackCopy(activeSessionId, successHandler, errorHandler);
+          });
+      } else {
+        fallbackCopy(activeSessionId, successHandler, errorHandler);
+      }
+    }
+
+    function fallbackCopy(text, onSuccess, onError) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.top = '0';
+        textarea.style.left = '0';
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (successful) {
+          onSuccess();
+        } else {
+          onError('execCommand returned false');
+        }
+      } catch (err) {
+        onError(err);
+      }
     }
   </script>
 </body>

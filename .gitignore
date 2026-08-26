@@ -3,3 +3,6 @@ node_modules/
 .DS_Store
 demo-keys.json
 ngrok
+openssl.cnf
+rp-cert.pem
+rp-private-key.pem

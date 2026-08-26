@@ -1,5 +1,5 @@
 /**
- * EUDI Wallet - Combined Relying Party (RP) & Credential Issuer REST API Server v14
+ * EUDI Wallet - Combined Relying Party (RP) & Credential Issuer REST API Server v15
  * 
  * Dieses Express-Modul implementiert die vollständigen Endpunkte für:
  * 1. Ein RP-Backend zur Präsentation von Credentials (OpenID4VP) mit JWE-Entschlüsselung (direct_post.jwt)
@@ -8,7 +8,7 @@
  * Es verwendet das Validierungsmodul 'eudi-verifier-helper-v7.js' (RP)
  * und 'eudi-issuer-verifier.js' (Issuer).
  * 
- * Sichert beim Startup die generierten Demo-Keys in /workspace/scratch/demo-keys.json,
+ * Sichert beim Startup die generierten Demo-Keys in ./demo-keys.json,
  * damit externe Test-Clients die WIA kryptografisch korrekt signieren können.
  * 
  * Installation der benötigten Pakete:
@@ -18,15 +18,19 @@
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
+const dotenv = require("dotenv");
 const cors = require('cors');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { EUDIVerifier } = require('./eudi-verifier-helper-v7');
+const { EUDIVerifier } = require('./eudi-verifier-helper_demo');
 const { EUDIPIDIssuerVerifier } = require('./eudi-issuer-verifier');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// read .env
+dotenv.config();
 
 // Middleware konfigurieren
 app.use(cors({ origin: true, credentials: true }));
@@ -70,10 +74,34 @@ const ISSUER_CONFIG = {
 
 // Kryptografische Schlüssel für Demo-Betrieb generieren (simuliert Trust-Store / PKI)
 let demoIssuerKeys, demoWalletKeys, rpSigningKeys;
+let rpSigningCertBase64 = "";
+
+try {
+  const { execSync } = require('child_process');
+  if (!fs.existsSync('./rp-private-key.pem')) {
+    const cnfContent = `[req]\ndistinguished_name = req_distinguished_name\nreq_extensions = v3_req\nx509_extensions = v3_req\nprompt = no\n\n[req_distinguished_name]\nCN = client.example.org\n\n[v3_req]\nkeyUsage = nonRepudiation, digitalSignature, keyEncipherment\nextendedKeyUsage = serverAuth, clientAuth\nsubjectAltName = DNS:client.example.org`;
+    fs.writeFileSync('./openssl.cnf', cnfContent);
+    execSync("openssl ecparam -name prime256v1 -genkey -noout -out ./rp-private-key.pem");
+    execSync("openssl req -new -x509 -key ./rp-private-key.pem -out ./rp-cert.pem -days 365 -config ./openssl.cnf");
+  }
+  const privPem = fs.readFileSync('./rp-private-key.pem', 'utf8');
+  const certPem = fs.readFileSync('./rp-cert.pem', 'utf8');
+  rpSigningKeys = {
+    privateKey: crypto.createPrivateKey(privPem),
+    publicKey: crypto.createPublicKey(certPem)
+  };
+  rpSigningCertBase64 = certPem
+    .replace(/-----\s*(BEGIN|END)\s+CERTIFICATE\s*-----/g, '')
+    .replace(/[\r\n]/g, '');
+  console.log('[Server Setup] RP-Signing-Zertifikat geladen und x5c-Wert extrahiert.');
+} catch (err) {
+  console.error('Fehler bei der RP-Schlüssel/Cert-Ladung:', err);
+  rpSigningKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
+}
+
 try {
   demoIssuerKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
   demoWalletKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
-  rpSigningKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' }); // Zum Signieren des JARs
 
   // Trust-Stores befüllen
   RP_CONFIG.trustedIssuerKeys.push(demoIssuerKeys.publicKey.export({ type: 'spki', format: 'pem' }));
@@ -92,7 +120,7 @@ try {
       publicKey: demoIssuerKeys.publicKey.export({ type: 'spki', format: 'pem' })
     }
   }, null, 2));
-  console.log('[Server Setup] Demo-Keys erfolgreich nach /workspace/scratch/demo-keys.json exportiert.');
+  console.log('[Server Setup] Demo-Keys erfolgreich nach ./demo-keys.json exportiert.');
 } catch (e) {
   console.error('Fehler bei der Schlüsselgenerierung:', e);
 }
@@ -109,57 +137,80 @@ const pidIssuer = new EUDIPIDIssuerVerifier({
 // KRYPTOGRAFISCHE HILFSFUNKTIONEN FÜR JWE-ENTSCHLÜSSELUNG (ECDH-ES + A128GCM/A256GCM)
 // =============================================================================
 
-function deriveConcatKDF(sharedSecret, keyLenBytes, alg, apu, apv) {
-  const roundOutputs = [];
-  let counter = 1;
-  const keyLenBits = keyLenBytes * 8;
+// ???
 
-  // AlgorithmID: 32-bit length prefix + alg string bytes
-  const algBuffer = Buffer.from(alg, 'ascii');
-  const algLen = Buffer.alloc(4);
-  algLen.writeUInt32BE(algBuffer.length, 0);
-  const algorithmID = Buffer.concat([algLen, algBuffer]);
+// ─────────────────────────────────────────────────────────────────────────────
+// ABHÄNGIGKEITSFREIER LIGHTWEIGHT CBOR-CODEC (GEMÄß RFC 8949)
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // PartyUInfo: 32-bit length prefix + apu bytes (if present, else empty)
-  const apuBuffer = apu ? Buffer.from(apu, 'base64url') : Buffer.alloc(0);
-  const apuLen = Buffer.alloc(4);
-  apuLen.writeUInt32BE(apuBuffer.length, 0);
-  const partyUInfo = Buffer.concat([apuLen, apuBuffer]);
-
-  // PartyVInfo: 32-bit length prefix + apv bytes (if present, else empty)
-  const apvBuffer = apv ? Buffer.from(apv, 'base64url') : Buffer.alloc(0);
-  const apvLen = Buffer.alloc(4);
-  apvLen.writeUInt32BE(apvBuffer.length, 0);
-  const partyVInfo = Buffer.concat([apvLen, apvBuffer]);
-
-  // SuppPubInfo: 32-bit big-endian integer representing key length in bits
-  const suppPubInfo = Buffer.alloc(4);
-  suppPubInfo.writeUInt32BE(keyLenBits, 0);
-
-  // Concat all to form fixedInfo (OtherInfo)
-  const fixedInfo = Buffer.concat([
-    algorithmID,
-    partyUInfo,
-    partyVInfo,
-    suppPubInfo
-  ]);
-
-  let bytesDerived = 0;
-  while (bytesDerived < keyLenBytes) {
-    const counterBuffer = Buffer.alloc(4);
-    counterBuffer.writeUInt32BE(counter, 0);
-
-    const hash = crypto.createHash('sha256')
-      .update(Buffer.concat([counterBuffer, sharedSecret, fixedInfo]))
-      .digest();
-
-    roundOutputs.push(hash);
-    bytesDerived += hash.length;
-    counter++;
+function encodeTypeAndLength(type, length) {
+  const major = type << 5;
+  if (length < 24) {
+    return Buffer.from([major | length]);
+  } else if (length < 0x100) {
+    return Buffer.from([major | 24, length]);
+  } else if (length < 0x10000) {
+    const buf = Buffer.alloc(3);
+    buf[0] = major | 25;
+    buf.writeUInt16BE(length, 1);
+    return buf;
+  } else {
+    const buf = Buffer.alloc(5);
+    buf[0] = major | 26;
+    buf.writeUInt32BE(length, 1);
+    return buf;
   }
-
-  return Buffer.concat(roundOutputs).slice(0, keyLenBytes);
 }
+
+function encodeCBOR(val) {
+  if (val === null) {
+    return Buffer.from([0xf6]);
+  }
+  if (val === undefined) {
+    return Buffer.from([0xf7]);
+  }
+  if (typeof val === 'boolean') {
+    return Buffer.from([val ? 0xf5 : 0xf4]);
+  }
+  if (typeof val === 'number') {
+    if (Number.isInteger(val)) {
+      if (val >= 0) {
+        return encodeTypeAndLength(0, val);
+      } else {
+        return encodeTypeAndLength(1, -val - 1);
+      }
+    } else {
+      throw new Error("Gleitkommazahlen werden in dieser Krypto-Ebene nicht unterstützt.");
+    }
+  }
+  if (typeof val === 'string') {
+    const buf = Buffer.from(val, 'utf8');
+    return Buffer.concat([encodeTypeAndLength(3, buf.length), buf]);
+  }
+  if (Buffer.isBuffer(val)) {
+    return Buffer.concat([encodeTypeAndLength(2, val.length), val]);
+  }
+  if (Array.isArray(val)) {
+    const encodedElements = val.map(encodeCBOR);
+    return Buffer.concat([encodeTypeAndLength(4, val.length), ...encodedElements]);
+  }
+  if (typeof val === 'object') {
+    const keys = Object.keys(val);
+    const encodedPairs = [];
+    for (const k of keys) {
+      encodedPairs.push(encodeCBOR(k));
+      encodedPairs.push(encodeCBOR(val[k]));
+    }
+    return Buffer.concat([encodeTypeAndLength(5, keys.length), ...encodedPairs]);
+  }
+  throw new Error("Nicht unterstützter CBOR-Datentyp: " + typeof val);
+}
+
+function base64url(strOrBuffer) {
+  const buffer = Buffer.isBuffer(strOrBuffer) ? strOrBuffer : Buffer.from(strOrBuffer);
+  return buffer.toString('base64url');
+}
+
 
 function decryptJweResponse(jweString, privateKeyPem) {
   const parts = jweString.split('.');
@@ -325,6 +376,9 @@ app.get('/api/presentation/request-jwt', (req, res) => {
     alg: 'ES256',
     typ: 'oauth-authz-req+jwt'
   };
+  if (rpSigningCertBase64) {
+    jwtHeader.x5c = [rpSigningCertBase64];
+  }
 
   try {
     const tokenInput = `${Buffer.from(JSON.stringify(jwtHeader)).toString('base64url')}.${Buffer.from(JSON.stringify(requestPayload)).toString('base64url')}`;
@@ -510,20 +564,58 @@ app.get('/api/presentation/status', (req, res) => {
 // TEIL 2: ENDPOINTS FÜR AUSSTELLUNG & BELEGVALIDIERUNG (OPENID4VCI)
 // =============================================================================
 
-app.get('/api/issuance/initiate', (req, res) => {
+app.get('/api/issuance/session-info', (req, res) => {
+  const sessionId = req.query.sid;
+  if (!sessionId || !transactionStore.has(sessionId)) {
+    return res.status(404).json({ error: 'Sitzung nicht gefunden' });
+  }
+  const tx = transactionStore.get(sessionId);
+  res.json({
+    wiaChallenge: tx.wiaChallenge,
+    claims: tx.claims,
+    validityDays: tx.validityDays
+  });
+});
+
+app.all('/api/issuance/initiate', (req, res) => {
   const sessionId = 'session_iss_' + crypto.randomBytes(12).toString('hex');
   const wiaChallenge = 'challenge_iss_' + crypto.randomBytes(16).toString('hex');
+
+  let customClaims = null;
+  let customValidityDays = 90;
+  let format = 'dc+sd-jwt';
+
+  if (req.method === 'POST') {
+    const { claims, validityDays, format: reqFormat } = req.body;
+    if (claims) {
+      customClaims = claims;
+    }
+    if (validityDays) {
+      customValidityDays = parseInt(validityDays, 10) || 90;
+    }
+    if (reqFormat) {
+      format = reqFormat;
+    }
+  } else {
+    const { format: reqFormat } = req.query;
+    if (reqFormat) {
+      format = reqFormat;
+    }
+  }
 
   transactionStore.set(sessionId, {
     type: 'ISSUANCE',
     wiaChallenge: wiaChallenge,
-    status: 'PENDING'
+    status: 'PENDING',
+    claims: customClaims,
+    validityDays: customValidityDays,
+    format: format
   });
 
   const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
   const offerObj = {
     credential_issuer: issuerUrl,
-    credential_configuration_ids: ['PID_SD_JWT_VC'],
+    credential_configuration_ids: format === 'mso_mdoc' ? ['mDL_mso_mdoc'] : ['PID_SD_JWT_VC'],
     grants: {
       authorization_code: {
         issuer_state: sessionId
@@ -534,7 +626,7 @@ app.get('/api/issuance/initiate', (req, res) => {
   const offerUrl = `openid-credential-offer://?credential_offer=${encodeURIComponent(JSON.stringify(offerObj))}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(offerUrl)}`;
 
-  console.log(`[Issuer Server] Issuance Session initiiert. Challenge: ${wiaChallenge}`);
+  console.log(`[Issuer Server] Issuance Session initiiert. ID: ${sessionId}, Challenge: ${wiaChallenge}, Validity: ${customValidityDays} days`);
 
   res.json({
     success: true,
@@ -545,7 +637,7 @@ app.get('/api/issuance/initiate', (req, res) => {
   });
 });
 
-app.get('/api/issuance/.well-known/openid-credential-issuer', (req, res) => {
+app.get(['/api/issuance/.well-known/openid-credential-issuer', '/.well-known/openid-credential-issuer/api/issuance'], (req, res) => {
   const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
   const metadata = {
     credential_issuer: issuerUrl,
@@ -578,6 +670,27 @@ app.get('/api/issuance/.well-known/openid-credential-issuer', (req, res) => {
             }
           ]
         }
+      },
+      "mDL_mso_mdoc": {
+        format: "mso_mdoc",
+        scope: "mDL_mso_mdoc",
+        doctype: "org.iso.18013.5.1.mDL",
+        credential_signing_alg_values_supported: ["ES256"],
+        proof_types_supported: {
+          "jwt": {
+            "proof_signing_alg_values_supported": ["ES256"]
+          }
+        },
+        credential_metadata: {
+          display: [
+            {
+              name: "Muster EUDI Mobile Driving Licence (mDL)",
+              locale: "de-DE",
+              background_color: "#EC4899",
+              text_color: "#FFFFFF"
+            }
+          ]
+        }
       }
     }
   };
@@ -602,8 +715,18 @@ app.post('/api/issuance/token', (req, res) => {
   const dpopProof = req.headers['dpop'];
 
   let expectedWiaChallenge = null;
+  let storedClaims = null;
+  let storedValidityDays = 90;
+  let storedSid = null;
+  let storedFormat = 'dc+sd-jwt';
+
   if (wia_challenge_sid && transactionStore.has(wia_challenge_sid)) {
-    expectedWiaChallenge = transactionStore.get(wia_challenge_sid).wiaChallenge;
+    const tx = transactionStore.get(wia_challenge_sid);
+    expectedWiaChallenge = tx.wiaChallenge;
+    storedClaims = tx.claims;
+    storedValidityDays = tx.validityDays;
+    storedSid = wia_challenge_sid;
+    storedFormat = tx.format || 'dc+sd-jwt';
   }
 
   const tokenResult = pidIssuer.verifyTokenRequest({
@@ -623,7 +746,11 @@ app.post('/api/issuance/token', (req, res) => {
 
     accessTokenStore.set(accessToken, {
       dpopKey: tokenResult.dpopKey,
-      scope: 'PID_SD_JWT_VC'
+      scope: storedFormat === 'mso_mdoc' ? 'mDL_mso_mdoc' : 'PID_SD_JWT_VC',
+      claims: storedClaims,
+      validityDays: storedValidityDays,
+      sid: storedSid,
+      format: storedFormat
     });
 
     res.setHeader('Content-Type', 'application/json');
@@ -676,36 +803,130 @@ app.post('/api/issuance/credential', (req, res) => {
   });
 
   if (credResult.success) {
-    console.log('[Issuer Server] ✅ Belegbesitz-Verifikation erfolgreich. Erzeuge SD-JWT VC...');
+    const format = tokenData.format || 'dc+sd-jwt';
 
-    const erikaClaims = {
-      given_name: 'Erika',
-      family_name: 'Mustermann',
-      birthdate: '1998-08-12',
-      is_over_18: true,
-      nationalities: ['DE'],
-      address: {
-        street_address: 'Heidestraße 17',
-        locality: 'Köln',
-        postal_code: '50667',
-        country: 'DE'
-      }
-    };
+    if (format === 'mso_mdoc') {
+      console.log('[Issuer Server] ✅ Belegbesitz-Verifikation erfolgreich. Erzeuge ISO mdoc (mDL)...');
 
-    const signedPid = pidIssuer.issuePID({
-      claims: erikaClaims,
-      holderJwk: credResult.devicePublicKeyJwk
-    });
+      const claims = tokenData.claims || {
+        given_name: 'Erika',
+        family_name: 'Mustermann',
+        birth_date: '1998-08-12',
+        driving_privileges: 'B',
+        issuing_country: 'DE'
+      };
 
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-    res.json({
-      credentials: [
-        {
-          credential: signedPid
+      const validityDays = tokenData.validityDays || 3650; // Default 10 years for mDL
+
+      const issueDate = new Date().toISOString().split('T')[0];
+      const expiryDate = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      const mdNameSpace = {
+        "org.iso.18013.5.1": {
+          given_name: claims.given_name || "Erika",
+          family_name: claims.family_name || "Mustermann",
+          birth_date: claims.birth_date || claims.birthdate || "1998-08-12",
+          issue_date: issueDate,
+          expiry_date: expiryDate,
+          issuing_country: claims.issuing_country || claims.country || "DE",
+          driving_privileges: claims.driving_privileges || "B"
         }
-      ]
-    });
+      };
+
+      const document = {
+        docType: "org.iso.18013.5.1.mDL",
+        issuerSigned: {
+          nameSpaces: mdNameSpace,
+          issuerAuth: encodeCBOR({
+            protected: Buffer.from("issuer_protected_headers"),
+            unprotected: {},
+            payload: Buffer.from("issuer_signed_mdl_payload"),
+            signature: Buffer.from("simulated_government_issuer_signature")
+          })
+        },
+        deviceSigned: {
+          nameSpaces: {},
+          deviceAuth: {
+            deviceSignature: {
+              protected: Buffer.from("device_protected_headers"),
+              unprotected: {},
+              payload: null,
+              signature: Buffer.from("simulated_device_secure_element_signature")
+            }
+          }
+        }
+      };
+
+      const deviceResponse = {
+        version: "1.0",
+        documents: [document],
+        status: 0
+      };
+
+      const deviceResponseCbor = encodeCBOR(deviceResponse);
+      const base64DeviceResponse = base64url(deviceResponseCbor);
+
+      // Set session status to SUCCESS so polling in browser registers complete issuance
+      if (tokenData.sid && transactionStore.has(tokenData.sid)) {
+        const tx = transactionStore.get(tokenData.sid);
+        tx.status = 'SUCCESS';
+        transactionStore.set(tokenData.sid, tx);
+        console.log(`[Issuer Server] ✅ Session ${tokenData.sid} Status auf SUCCESS gesetzt.`);
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({
+        credentials: [
+          {
+            credential: base64DeviceResponse
+          }
+        ]
+      });
+    } else {
+      console.log('[Issuer Server] ✅ Belegbesitz-Verifikation erfolgreich. Erzeuge SD-JWT VC...');
+
+      const defaultClaims = {
+        given_name: 'Erika',
+        family_name: 'Mustermann',
+        birthdate: '1998-08-12',
+        is_over_18: true,
+        nationalities: ['DE'],
+        address: {
+          street_address: 'Heidestraße 17',
+          locality: 'Köln',
+          postal_code: '50667',
+          country: 'DE'
+        }
+      };
+
+      const finalClaims = tokenData.claims || defaultClaims;
+      const validityDays = tokenData.validityDays || 90;
+
+      const signedPid = pidIssuer.issuePID({
+        claims: finalClaims,
+        holderJwk: credResult.devicePublicKeyJwk,
+        validityDays: validityDays
+      });
+
+      // Set session status to SUCCESS so polling in browser registers complete issuance
+      if (tokenData.sid && transactionStore.has(tokenData.sid)) {
+        const tx = transactionStore.get(tokenData.sid);
+        tx.status = 'SUCCESS';
+        transactionStore.set(tokenData.sid, tx);
+        console.log(`[Issuer Server] ✅ Session ${tokenData.sid} Status auf SUCCESS gesetzt.`);
+      }
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({
+        credentials: [
+          {
+            credential: signedPid
+          }
+        ]
+      });
+    }
   } else {
     console.error('[Issuer Server] ❌ Belegbesitz-Verifikation fehlgeschlagen:', credResult.errors);
     res.status(400).json({
@@ -717,7 +938,7 @@ app.post('/api/issuance/credential', (req, res) => {
 
 // Starten des API-Servers
 app.listen(PORT, () => {
-  console.log(`\n=== EUDI WALLET INTEGRATED SERVER v11 (PRESENTATION & ISSUANCE) ===`);
+  console.log(`\n=== EUDI WALLET INTEGRATED SERVER v18 (PRESENTATION & ISSUANCE) ===`);
   console.log(`Server läuft lokal auf: http://localhost:${PORT}`);
   console.log(`Öffentliche RP-Identität (client_id): ${RP_CONFIG.clientId}`);
   console.log(`Öffentliche Issuer-Identität (issuer_id): ${ISSUER_CONFIG.issuerId}`);
