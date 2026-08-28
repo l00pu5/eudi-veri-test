@@ -13,9 +13,9 @@ This repository aims to provide a full local **EUDI Wallet Sandbox**. It provide
 The project consists of the following modules and components:
 
 1. **`eudi-verifier-helper_demo.js` (presentation verification):**
-   * Verifies incoming presentations (SD-JWT VC or binary mdoc documents) in a tamper-proof fashion and provides a detailed integrity and hash matching log (`integrityLog`).
-   * Is based solely on the  **native Node.js `crypto` module** (no additional npm dependencies).
-   * Contains a mock **Erika Mustermann identity payload** for local validation simulation.
+  * Verifies incoming presentations (SD-JWT VC or binary mdoc documents) in a tamper-proof fashion and provides a detailed integrity and hash matching log (`integrityLog`).
+  * Is based solely on the  **native Node.js `crypto` module** (no additional npm dependencies).
+  * Contains a mock **Erika Mustermann identity payload** for local validation simulation.
 
 2. **`eudi-issuer-verifier.js` (issuance engine & PID provider):**
    * Simuliert die kryptografische Kernlogik eines **PID-Providers (Credential Issuers)** gemäß **OpenID4VCI 1.0** und dem **High-Assurance Interoperability Profile (HAIP)**.
