@@ -1,21 +1,17 @@
 /**
- * EUDI Wallet - Unified Javascript Test Harness & E2E Integration Simulator (v7)
+ * EUDI Wallet - Test Harness & end-to-end Integration Simulator
  * 
- * Dieses Skript ersetzt die alten plattformabhängigen Bash-Skripte vollständig durch
- * einen plattformunabhängigen, mathematisch korrekten Node.js-Simulator.
+ * This script simulates the presentation & issuance flows.
  * 
- * Es verwendet das native Node.js 'crypto'- und das globale 'fetch'-Modul (Node 18+).
- * 
- * Unterstützte Modi (auswählbar über Startargument --mode):
- *   --mode=1 (simple):    Unverschlüsselte direct_post-Präsentation (Erika Mustermann SD-JWT VC Mock).
- *   --mode=2 (encrypted): Verschlüsselte direct_post.jwt-Präsentation via JWE (ECDH-ES + AES-128-GCM).
- *   --mode=3 (e2e):       Vollständige eIDAS-Pipeline: Erst dynamische Ausstellung (OpenID4VCI)
- *                         gefolgt von verschlüsselter Präsentation (OpenID4VP) des frisch ausgestellten SD-JWT Ausweises!
- *   --mode=4 (mdoc):      CBOR- und mdoc-basierte mobile Führerschein-Präsentation (mDL) mit mathematisch korrektem
- *                         SessionTranscript und binärer DeviceResponse-CBOR-Simulation.
+ * Supported simulation modes (can be defined via argument --mode):
+ *   --mode=1 (simple):    Unencrypted direct_post presetation (Erika Mustermann SD-JWT VC mock)
+ *   --mode=2 (encrypted): Encrypted direct_post.jwt presentation via JWE (ECDH-ES + AES-128-GCM)
+ *   --mode=3 (e2e):       End-to-end test: dynamic issuance (OpenID4VCI) + encrypted presentation (OpenID4VP) of a SD-JWT PID
+ *   --mode=4 (mdoc):      CBOR- and mdoc-based mDL presentation with SessionTranscript and binary DeviceResponse CBOR simulation
+ *   --mode=5 (mdoc e2e):  mDL end-to-end test (mDL issuance + mdoc presentation) 
  * 
  * Ausführung:
- *   node eudi-test-harness-v3.js --mode=4
+ *   node eudi-test-harness_demo.js --mode=4
  */
 
 const crypto = require('crypto');
@@ -23,7 +19,7 @@ const fs = require('fs');
 
 const API_BASE = 'http://localhost:3000';
 
-// ANSI-Escape-Codes für farbige Konsolenausgabe
+// ANSCI escape codes for colored terminal output
 const COLOR_RESET = '\x1b[0m';
 const COLOR_INFO = '\x1b[34m';
 const COLOR_SUCCESS = '\x1b[32m';
@@ -33,7 +29,7 @@ const COLOR_CYAN = '\x1b[36m';
 const COLOR_BOLD = '\x1b[1m';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ABHÄNGIGKEITSFREIER LIGHTWEIGHT CBOR-CODEC (GEMÄß RFC 8949)
+// LIGHTWEIGHT CBOR CODEC (RFC 8949)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function encodeTypeAndLength(type, length) {
@@ -73,7 +69,7 @@ function encodeCBOR(val) {
         return encodeTypeAndLength(1, -val - 1);
       }
     } else {
-      throw new Error("Gleitkommazahlen werden in dieser Krypto-Ebene nicht unterstützt.");
+      throw new Error("Floating point numbers not supported on this layer.");
     }
   }
   if (typeof val === 'string') {
@@ -96,16 +92,16 @@ function encodeCBOR(val) {
     }
     return Buffer.concat([encodeTypeAndLength(5, keys.length), ...encodedPairs]);
   }
-  throw new Error("Nicht unterstützter CBOR-Datentyp: " + typeof val);
+  throw new Error("Unsupported CBOR data type:" + typeof val);
 }
 
-// Hilfsfunktion für Base64url-Kodierung
+// aux function for base64url encoding
 function base64url(strOrBuffer) {
   const buffer = Buffer.isBuffer(strOrBuffer) ? strOrBuffer : Buffer.from(strOrBuffer);
   return buffer.toString('base64url');
 }
 
-// Hilfsfunktion für JWK Thumbprint (RFC 7638)
+// aux function for JWK thumbprint (RFC 7638)
 function getJwkThumbprint(jwk) {
   const sortedJwk = {
     crv: jwk.crv,
@@ -117,7 +113,7 @@ function getJwkThumbprint(jwk) {
   return crypto.createHash('sha256').update(jwkString).digest();
 }
 
-// Hilfsfunktion zum Signieren eines JWS-Tokens (Natives ES256)
+// aux function for JWS token signing (native ES256)
 function signJws(header, payload, privateKey) {
   const headerB64 = base64url(JSON.stringify(header));
   const payloadB64 = base64url(JSON.stringify(payload));
@@ -131,7 +127,7 @@ function signJws(header, payload, privateKey) {
 }
 
 /**
- * Concat KDF gemäß RFC 7518 Sektion 4.6.2 zur CEK-Ableitung (AES-128-GCM)
+ * Concat KDF acc. RFC 7518 for CEK derivation (AES-128-GCM)
  */
 function deriveConcatKDF(sharedSecret, keyLenBytes, alg, apu, apv) {
   const roundOutputs = [];
@@ -185,14 +181,14 @@ function deriveConcatKDF(sharedSecret, keyLenBytes, alg, apu, apv) {
   return Buffer.concat(roundOutputs).slice(0, keyLenBytes);
 }
 
-// Zeitmessungs-Datenstruktur
+// time measurement data structure
 const rTimes = {};
 function trackTime(label, fnOrPromise) {
   const start = process.hrtime.bigint();
   if (fnOrPromise instanceof Promise) {
     return fnOrPromise.then(res => {
       const end = process.hrtime.bigint();
-      rTimes[label] = Number(end - start) / 1_000_000; // in Millisekunden
+      rTimes[label] = Number(end - start) / 1_000_000; // ms
       return res;
     });
   } else {
@@ -206,7 +202,7 @@ function trackTime(label, fnOrPromise) {
 async function run() {
   const args = process.argv.slice(2);
   let modeArg = args.find(arg => arg.startsWith('--mode='));
-  let mode = modeArg ? modeArg.split('=')[1] : '3'; // Default: Modus 3 (E2E)
+  let mode = modeArg ? modeArg.split('=')[1] : '3'; // default: mode 3 (E2E)
 
   let sidArg = args.find(arg => arg.startsWith('--sid='));
   let externalSid = sidArg ? sidArg.split('=')[1] : null;
@@ -214,38 +210,38 @@ async function run() {
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
   console.log(`${COLOR_BOLD}${COLOR_INFO}📱 EUDI WALLET - UNIFIED CRYPTO-TEST HARNESS & CLIENT (JS)${COLOR_RESET}`);
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
-  console.log(`Gewählter Simulationsmodus: ${COLOR_BOLD}${COLOR_WARN}Modus ${mode}${COLOR_RESET}`);
+  console.log(`Selected simulation mode: ${COLOR_BOLD}${COLOR_WARN}Modus ${mode}${COLOR_RESET}`);
   if (externalSid) {
-    console.log(`Browser-Sitzungs-ID gekoppelt: ${COLOR_BOLD}${COLOR_SUCCESS}${externalSid}${COLOR_RESET}`);
+    console.log(`Browser session ID coupled: ${COLOR_BOLD}${COLOR_SUCCESS}${externalSid}${COLOR_RESET}`);
   }
 
   if (mode === '1') {
-    console.log(`Beschreibung: Unverschlüsselte direct_post-Präsentation (Mock-Claims).`);
+    console.log(`Description: Unencrypted direct_post presentation (mock claims).`);
     await runPresentation(false, null, externalSid);
   } else if (mode === '2') {
-    console.log(`Beschreibung: Verschlüsselte direct_post.jwt-Präsentation (JWE via ECDH-ES).`);
+    console.log(`Description: Encrypted direct_post.jwt presentation (JWE via ECDH-ES).`);
     await runPresentation(true, null, externalSid);
   } else if (mode === '3') {
-    console.log(`Beschreibung: Vollständige E2E-Pipeline (Ausstellung + JWE-verschlüsselte Präsentation).`);
+    console.log(`Description: end-to-end flow (issuance + JWE presentation).`);
     const issuedCredential = await runIssuance('dc+sd-jwt', externalSid);
     if (externalSid && externalSid.startsWith('session_iss_')) {
-      console.log(`🎉 Erfolgreich! Ausweis wurde via OpenID4VCI an Browser-Sitzung ausgestellt.`);
+      console.log(`🎉 Successful! PID has been issued to browser session.`);
     } else {
       await runPresentation(true, issuedCredential, externalSid);
     }
   } else if (mode === '4') {
-    console.log(`Beschreibung: mdoc-Präsentationsmodus (mDL) mit binärer DeviceResponse-CBOR-Simulation.`);
+    console.log(`Description: mdoc presentation (mDL) with binary DeviceResponse CBOR simulation.`);
     await runMdocPresentation(true, externalSid); // mdoc mit JWE verschlüsselt senden
   } else if (mode === '5') {
-    console.log(`Beschreibung: Vollständige mDL E2E-Pipeline (mDL-Ausstellung + mdoc-Präsentation).`);
+    console.log(`Description: end-to-end mDL flow (mDL issuance + mdoc presentation).`);
     const issuedCredential = await runIssuance('mso_mdoc', externalSid);
     if (externalSid && externalSid.startsWith('session_iss_')) {
-      console.log(`🎉 Erfolgreich! mDL-Führerschein wurde via OpenID4VCI an Browser-Sitzung ausgestellt.`);
+      console.log(`🎉 Successful! mDL has been issued to browser session.`);
     } else {
       await runMdocPresentation(true, externalSid, issuedCredential);
     }
   } else {
-    console.error(`${COLOR_ERROR}❌ Ungültiger Modus: ${mode}. Unterstützt werden: 1, 2, 3, 4, 5.${COLOR_RESET}`);
+    console.error(`${COLOR_ERROR}❌ Invalid mode: ${mode}. Supported modes: 1, 2, 3, 4, 5.${COLOR_RESET}`);
     process.exit(1);
   }
 
@@ -254,30 +250,30 @@ async function run() {
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * SCHRITT A: AUSSTELLUNGS-PROZESS (OpenID4VCI) - Nur für Modus 3
+ * STEP A: ISSUANCE PROCESS (OpenID4VCI) - mode 3
  * ─────────────────────────────────────────────────────────────────────────────
  */
 async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
-  console.log(`\n${COLOR_INFO}--- PHASE 1: DYNAMISCHE AUSWEIS-HERAUSGABE (OpenID4VCI) ---${COLOR_RESET}`);
-  console.log(`   Format: ${COLOR_BOLD}${format}${COLOR_RESET}`);
+  console.log(`\n${COLOR_INFO}--- PHASE 1: DYNAMIC PID ISSUANCE (OpenID4VCI) ---${COLOR_RESET}`);
+  console.log(` Format: ${COLOR_BOLD}${format}${COLOR_RESET}`);
 
   const keysPath = './demo-keys.json';
   if (!fs.existsSync(keysPath)) {
-    console.error(`${COLOR_ERROR}❌ Fehler: Keine aktiven Demo-Schlüssel gefunden!${COLOR_RESET}`);
-    console.error(`Bitte starten Sie zuerst den Express-Server v8/v9 mit:`);
-    console.error(`   node eudi-verifier-server-v9.js`);
+    console.error(`${COLOR_ERROR}❌ Error: no active demo keys found!${COLOR_RESET}`);
+    console.error(`Please ensure that the backend service is started via:`);
+    console.error(` node eudi-verifier-server-v9.js`);
     process.exit(1);
   }
 
-  console.log(`[VCI 1] Lade PKI-Schlüssel des Wallet-Providers...`);
+  console.log(`[VCI 1] Loadinh PKI keys of the wallet provider...`);
   const demoKeys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
-  console.log(`   ✔ Keys erfolgreich geladen.`);
+  console.log(` ✔ Keys loaded successfully.`);
 
-  console.log(`[VCI 2] Generiere ephemere Wallet- und Device-Binding-Schlüssel (P-256)...`);
-  const walletKeyPair = trackTime('Schlüsselgenerierung: Wallet (P-256)', () =>
+  console.log(`[VCI 2] Generating ephemeral wallet and device binding keys (P-256)...`);
+  const walletKeyPair = trackTime('Key generation: Wallet (P-256)', () =>
     crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' })
   );
-  const deviceKeyPair = trackTime('Schlüsselgenerierung: Device-Binding (P-256)', () =>
+  const deviceKeyPair = trackTime('Key generation: Device-Binding (P-256)', () =>
     crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' })
   );
   const walletPubKeyJwk = walletKeyPair.publicKey.export({ format: 'jwk' });
@@ -285,16 +281,16 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
 
   let sessionId, wiaChallenge;
   if (externalSid && externalSid.startsWith('session_iss_')) {
-    console.log(`[VCI 3] Verwende übergebene Browser-Ausstellungs-Sitzung: ${externalSid}`);
+    console.log(`[VCI 3] Using browser issuance session: ${externalSid}`);
     sessionId = externalSid;
-    const sessionInfo = await trackTime('HTTP: Hole VCI Session Info',
+    const sessionInfo = await trackTime('HTTP: fetching VCI session info',
       fetch(`${API_BASE}/api/issuance/session-info?sid=${sessionId}`).then(res => res.json())
     );
     wiaChallenge = sessionInfo.wiaChallenge;
-    console.log(`   ✔ Challenge erfolgreich abgerufen: ${wiaChallenge}`);
+    console.log(` ✔ Challenge retrieved successfully: ${wiaChallenge}`);
   } else {
-    console.log(`[VCI 3] Initiiere neue Ausstellungs-Sitzung...`);
-    const initResponse = await trackTime('HTTP: Initiere VCI Session',
+    console.log(`[VCI 3] Initiating new issuance session...`);
+    const initResponse = await trackTime('HTTP: initiating VCI session',
       fetch(`${API_BASE}/api/issuance/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -304,15 +300,15 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     sessionId = initResponse.sessionId;
     wiaChallenge = initResponse.wiaChallenge;
   }
-  console.log(`   ✔ Session erstellt. ID: ${sessionId}`);
+  console.log(` ✔ Session created. ID: ${sessionId}`);
 
   console.log(`[VCI 4] Hole frische Einmal-Nonces vom Nonce-Endpoint...`);
   const nonceResponse = await trackTime('HTTP: Hole VCI Nonces',
     fetch(`${API_BASE}/api/issuance/nonce`, { method: 'POST' }).then(res => res.json())
   );
 
-  console.log(`[VCI 5] Bereite Wallet Instance Attestation (WIA) & WIA-PoP vor (Säule 4)...`);
-  const wiaToken = trackTime('Krypto: Signiere WIA JWT', () => {
+  console.log(`[VCI 5] Preparing WIA & WIA PoP...`);
+  const wiaToken = trackTime('Crypto: Signing WIA JWT', () => {
     const header = { alg: 'ES256', typ: 'oauth-client-attestation+jwt' };
     const payload = {
       iss: 'https://wallet-provider.de',
@@ -322,7 +318,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     return signJws(header, payload, demoKeys.demoWalletKeys.privateKey);
   });
 
-  const wiaPop = trackTime('Krypto: Signiere WIA-PoP JWT', () => {
+  const wiaPop = trackTime('Crypto: Signing WIA PoP JWT', () => {
     const header = { alg: 'ES256', typ: 'oauth-client-attestation-pop+jwt' };
     const payload = {
       iss: 'https://wallet-provider.de',
@@ -332,8 +328,8 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     return signJws(header, payload, walletKeyPair.privateKey);
   });
 
-  console.log(`[VCI 6] Erzeuge DPoP-Proof für Token-Endpoint (Sender-Constraint)...`);
-  const tokenDpopProof = trackTime('Krypto: Signiere Token DPoP Proof', () => {
+  console.log(`[VCI 6] Generating DPoP proof for token endpoint (sender constrainting)...`);
+  const tokenDpopProof = trackTime('Crypto: Signing Token DPoP Proof', () => {
     const header = { alg: 'ES256', typ: 'dpop+jwt', jwk: walletPubKeyJwk };
     const payload = {
       htm: 'POST',
@@ -343,7 +339,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     return signJws(header, payload, walletKeyPair.privateKey);
   });
 
-  console.log(`[VCI 7] Sende Token-Exchange Anfrage...`);
+  console.log(`[VCI 7] Sending token exchange request...`);
   const tokenRequestBody = {
     code: 'dummy_auth_code_123',
     code_verifier: 'dummy_code_verifier_123',
@@ -363,12 +359,12 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     }).then(res => res.json())
   );
 
-  console.log(`[VCI 8] Bereite Belegnachweis (Device-Binding Proof) vor...`);
-  const credNonces = await trackTime('HTTP: Hole VCI Credential Nonces',
+  console.log(`[VCI 8] Preparing PoP (Device-Binding Proof) vor...`);
+  const credNonces = await trackTime('HTTP: fetching VCI crendential nonces',
     fetch(`${API_BASE}/api/issuance/nonce`, { method: 'POST' }).then(res => res.json())
   );
 
-  const credDpopProof = trackTime('Krypto: Signiere Credential DPoP Proof', () => {
+  const credDpopProof = trackTime('Crypto: Signing credential DPoP proof', () => {
     const header = { alg: 'ES256', typ: 'dpop+jwt', jwk: walletPubKeyJwk };
     const payload = {
       htm: 'POST',
@@ -378,7 +374,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     return signJws(header, payload, walletKeyPair.privateKey);
   });
 
-  const popProofJwt = trackTime('Krypto: Signiere Device-Binding PoP (c_nonce)', () => {
+  const popProofJwt = trackTime('Crypto: Signing Device-Binding PoP (c_nonce)', () => {
     const header = { alg: 'ES256', typ: 'openid4vci-proof+jwt', jwk: devicePubKeyJwk };
     const payload = {
       aud: `${API_BASE}/api/issuance`,
@@ -387,7 +383,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     return signJws(header, payload, deviceKeyPair.privateKey);
   });
 
-  console.log(`[VCI 9] Rufe frisch ausgestellten mdoc/SD-JWT Ausweis ab...`);
+  console.log(`[VCI 9] Retrieving mdoc/SD-JWT PID...`);
   const credRequestPayload = {
     credential_configuration_id: format === 'mso_mdoc' ? 'mDL_mso_mdoc' : 'PID_SD_JWT_VC',
     proofs: {
@@ -395,7 +391,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     }
   };
 
-  const credResponse = await trackTime('HTTP: Ausweis abrufen (/credential)',
+  const credResponse = await trackTime('HTTP: fetching PID (/credential)',
     fetch(`${API_BASE}/api/issuance/credential`, {
       method: 'POST',
       headers: {
@@ -408,7 +404,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
   );
 
   const issuedCredential = credResponse.credentials[0].credential;
-  console.log(`${COLOR_SUCCESS}✅ Ausweis erfolgreich ausgestellt! (Länge: ${issuedCredential.length} Zeichen)${COLOR_RESET}`);
+  console.log(`${COLOR_SUCCESS}✅ PID issued successfully! (length: ${issuedCredential.length} chars)${COLOR_RESET}`);
 
   return {
     credential: issuedCredential,
@@ -419,30 +415,30 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * SCHRITT B: PRÄSENTATIONS-PROZESS (OpenID4VP) - Modi 1, 2 und 3
+ * STEP B: PRESENTATION (OpenID4VP) - modes 1, 2 and 3
  * ─────────────────────────────────────────────────────────────────────────────
  */
 async function runPresentation(useEncryption, issuedData, externalSid = null) {
-  console.log(`\n${COLOR_INFO}--- PHASE 2: AUSWEIS-PRÄSENTATION (OpenID4VP) ---${COLOR_RESET}`);
+  console.log(`\n${COLOR_INFO}--- PHASE 2: PID PRESENTATION (OpenID4VP) ---${COLOR_RESET}`);
 
   let sessionId, requestUri;
   if (externalSid) {
-    console.log(`[VP 1] Verwende übergebene Browser-Sitzungs-ID: ${externalSid}`);
+    console.log(`[VP 1] Using browser session ID: ${externalSid}`);
     sessionId = externalSid;
     requestUri = `${API_BASE}/api/presentation/request-jwt?sid=${sessionId}`;
   } else {
-    console.log(`[VP 1] Initiiere neue Präsentations-Sitzung am Verifizierer...`);
-    const initResponse = await trackTime('HTTP: Initiere VP Session',
+    console.log(`[VP 1] Initating new presentation session at the verifier...`);
+    const initResponse = await trackTime('HTTP: Initiating VP session',
       fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
     );
     sessionId = initResponse.sessionId;
     const qrCodeUrl = initResponse.qrCodeUrl;
-    console.log(`   ✔ Session erfolgreich erstellt. ID: ${sessionId}`);
+    console.log(` ✔ Session created successfully. ID: ${sessionId}`);
     requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
   }
 
-  console.log(`[VP 2] Rufe Request Object (JAR) via request_uri ab...`);
-  const signedJar = await trackTime('HTTP: Hole JAR Request',
+  console.log(`[VP 2] fetching request object (JAR) via request_uri...`);
+  const signedJar = await trackTime('HTTP: Fetching JAR request',
     fetch(requestUri).then(res => res.text())
   );
 
@@ -451,15 +447,15 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
   const nonce = jarPayload.nonce;
   const rpKeyJwk = jarPayload.client_metadata?.jwks?.keys[0];
 
-  console.log(`   ✔ JAR erfolgreich empfangen und demaskiert.`);
-  console.log(`   ✔ Extrahierte Präsentations-Nonce: ${nonce}`);
+  console.log(` ✔ JAR retrieved and demasked successfully.`);
+  console.log(` ✔ Extracted presentation nonce: ${nonce}`);
 
-  console.log(`[VP 3] Bereite Präsentations-Payload (SD-JWT VC + Key Binding) vor...`);
+  console.log(`[VP 3] Preparing presentation payload (SD-JWT VC + Key Binding)...`);
   let finalSdJwt;
   let presentationDevicePrivateKey;
 
   if (issuedData) {
-    console.log(`   👉 Nutze dynamisch ausgestellten Ausweis aus Phase 1.`);
+    console.log(` 👉 Using dynamically generated PID.`);
     const issuedCredential = issuedData.credential;
     presentationDevicePrivateKey = issuedData.devicePrivateKey;
 
@@ -475,13 +471,13 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
       sd_hash: "Dy-RYwZfaaoC3inJbLslgPvMp09bH-clYP_3qbRqtW4"
     };
 
-    const kbJwt = trackTime('Krypto: Signiere Key-Binding (KB-JWT)', () =>
+    const kbJwt = trackTime('Crypto: signing key binding (KB-JWT)', () =>
       signJws(kbHeader, kbPayload, presentationDevicePrivateKey)
     );
 
     finalSdJwt = `${issuerJwt}~${disclosures.join('~')}~${kbJwt}`;
   } else {
-    console.log(`   👉 Nutze statisch signierten Mock-Ausweis für Erika Mustermann.`);
+    console.log(` 👉 Using statically signed mock PID for Erika Mustermann.`);
     const mockDeviceKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
     presentationDevicePrivateKey = mockDeviceKeyPair.privateKey;
 
@@ -540,26 +536,26 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
   let postContentType = 'application/x-www-form-urlencoded';
 
   if (useEncryption && rpKeyJwk) {
-    console.log(`[VP 4] Verschlüssele Präsentation via JWE (ECDH-ES + AES-128-GCM)...`);
+    console.log(`[VP 4] Encrypting presentation via JWE (ECDH-ES + AES-128-GCM)...`);
 
-    const walletEncKeyPair = trackTime('Schlüsselgenerierung: Ephemerer VP-Key (P-256)', () =>
+    const walletEncKeyPair = trackTime('Key generation: ephemeral VP key (P-256)', () =>
       crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' })
     );
     const walletEncPubKeyJwk = walletEncKeyPair.publicKey.export({ format: 'jwk' });
 
     const rpPublicKey = crypto.createPublicKey({ key: rpKeyJwk, format: 'jwk' });
-    const sharedSecret = trackTime('Krypto: ECDH Key Agreement', () =>
+    const sharedSecret = trackTime('Crypto: ECDH key agreement', () =>
       crypto.diffieHellman({
         privateKey: walletEncKeyPair.privateKey,
         publicKey: rpPublicKey
       })
     );
 
-    const cek = trackTime('Krypto: Concat KDF Key Derivation', () =>
+    const cek = trackTime('Crypto: Concat KDF key derivation', () =>
       deriveConcatKDF(sharedSecret, 16, 'A128GCM')
     );
 
-    const jweString = trackTime('Krypto: AES-128-GCM JWE Verschlüsselung', () => {
+    const jweString = trackTime('Crypto: AES-128-GCM JWE encryption', () => {
       const jweHeader = {
         alg: 'ECDH-ES',
         enc: 'A128GCM',
@@ -580,63 +576,63 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
       return `${headerB64}..${iv.toString('base64url')}.${ciphertext.toString('base64url')}.${tag.toString('base64url')}`;
     });
 
-    console.log(`   ✔ JWE-Verschlüsselung abgeschlossen. JWE: ${jweString.substring(0, 50)}...`);
+    console.log(` ✔ JWE encryption completed. JWE: ${jweString.substring(0, 50)}...`);
     postBodyString = `response=${encodeURIComponent(jweString)}&state=${encodeURIComponent(sessionId)}`;
   } else {
-    console.log(`[VP 4] Sende unverschlüsselte Payload (Fallback-Kanal direct_post)...`);
+    console.log(`[VP 4] Sending unencrypted payload (fallback: direct_post)...`);
     postBodyString = `vp_token=${encodeURIComponent(JSON.stringify(cleartextPayload.vp_token))}&wia_token=${encodeURIComponent(cleartextPayload.wia_token)}&state=${encodeURIComponent(sessionId)}`;
   }
 
-  console.log(`[VP 5] Übermittle direct_post Callback an den RP-Server...`);
-  const callbackResponse = await trackTime('HTTP: direct_post Callback übermitteln',
+  console.log(`[VP 5] Transmitting direct_post callback to RP server...`);
+  const callbackResponse = await trackTime('HTTP: direct_post callback transmission',
     fetch(`${API_BASE}/api/presentation/callback`, {
       method: 'POST',
       headers: { 'Content-Type': postContentType },
       body: postBodyString
     }).then(res => res.json())
   );
-  console.log(`   ✔ Server meldet Redirect-URI: ${callbackResponse.redirect_uri}`);
+  console.log(` ✔ Server returns redirect URI: ${callbackResponse.redirect_uri}`);
 
-  console.log(`[VP 6] Frage finalen Verifizierungsstatus im Server ab...`);
+  console.log(`[VP 6] Fetching final verification status from server...`);
   const statusResponse = await trackTime('HTTP: Polling Onboarding Status',
     fetch(`${API_BASE}/api/presentation/status?sid=${sessionId}`).then(res => res.json())
   );
 
   console.log(`\n${COLOR_CYAN}================================================================${COLOR_RESET}`);
-  console.log(`${COLOR_BOLD}${COLOR_SUCCESS}🎯 STATUS DER PRÄSENTATIONS-VERIFIKATION: ${statusResponse.status}${COLOR_RESET}`);
+  console.log(`${COLOR_BOLD}${COLOR_SUCCESS}🎯 STATUS OF PRESENTATION VERIFICATION: ${statusResponse.status}${COLOR_RESET}`);
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
-  console.log(`Transport-Verschlüsselung (JWE): ${COLOR_BOLD}${statusResponse.isEncrypted ? 'JA 🔒 (direct_post.jwt)' : 'NEIN ⚠️ (Klartext direct_post)'}${COLOR_RESET}`);
-  console.log(`Übertragene Claims:`);
+  console.log(`Transport encryption (JWE): ${COLOR_BOLD}${statusResponse.isEncrypted ? 'YES 🔒 (direct_post.jwt)' : 'NO ⚠️ (direct_post)'}${COLOR_RESET}`);
+  console.log(`Transmitted claims:`);
   console.log(JSON.stringify(statusResponse.claims, null, 2));
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}\n`);
 }
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * SCHRITT C: MDOC PRÄSENTATIONS-PROZESS (MODUS 4)
+ * STEP C: MDOC PRESENTATION (MODE 4)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 async function runMdocPresentation(useEncryption, externalSid = null, issuedData = null) {
-  console.log(`\n${COLOR_INFO}--- AUSWEIS-PRÄSENTATION IM ISO MDOC-FORMAT (mDL) ---${COLOR_RESET}`);
+  console.log(`\n${COLOR_INFO}--- PID PRESENTATION IN ISO MDOC FORMAT (mDL) ---${COLOR_RESET}`);
 
   let sessionId, requestUri;
   if (externalSid) {
-    console.log(`[mdoc 1] Verwende übergebene Browser-Sitzungs-ID: ${externalSid}`);
+    console.log(`[mdoc 1] Using browser session ID: ${externalSid}`);
     sessionId = externalSid;
     requestUri = `${API_BASE}/api/presentation/request-jwt?sid=${sessionId}`;
   } else {
-    console.log(`[mdoc 1] Initiiere neue Präsentations-Sitzung am Verifizierer...`);
-    const initResponse = await trackTime('HTTP: Initiere mdoc Session',
+    console.log(`[mdoc 1] Initiating new presentation session at the verifier...`);
+    const initResponse = await trackTime('HTTP: Initiating mdoc session',
       fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
     );
     sessionId = initResponse.sessionId;
     const qrCodeUrl = initResponse.qrCodeUrl;
-    console.log(`   ✔ Session erfolgreich erstellt. ID: ${sessionId}`);
+    console.log(` ✔ Session created successfully. ID: ${sessionId}`);
     requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
   }
 
-  console.log(`[mdoc 2] Rufe Request Object (JAR) via request_uri ab...`);
-  const signedJar = await trackTime('HTTP: Hole JAR Request',
+  console.log(`[mdoc 2] Fetching request object (JAR) via request_uri...`);
+  const signedJar = await trackTime('HTTP: Fetching JAR request',
     fetch(requestUri).then(res => res.text())
   );
 
@@ -645,17 +641,17 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
   const nonce = jarPayload.nonce;
   const rpKeyJwk = jarPayload.client_metadata?.jwks?.keys[0];
 
-  console.log(`   ✔ Extrahierte Präsentations-Nonce: ${nonce}`);
+  console.log(` ✔ Extracted presentation nonce: ${nonce}`);
 
-  console.log(`[mdoc 3] Erzeuge mathematisch korrektes SessionTranscript (ISO 18013-5)...`);
+  console.log(`[mdoc 3] Generating SesseionTranscript (ISO 18013-5)...`);
 
-  // 1. HandoverInfo-Struktur aufbauen und CBOR-kodieren
+  // 1. Building HandoverInfo structure aufbauen + CBOR encoding
   const rpClientId = "x509_san_dns:client.example.org";
   const responseUri = `${API_BASE}/api/presentation/callback`;
 
   let jwkThumbprint = null;
   if (useEncryption && rpKeyJwk) {
-    jwkThumbprint = trackTime('Krypto: Berechne JWK Thumbprint (RFC 7638)', () => getJwkThumbprint(rpKeyJwk));
+    jwkThumbprint = trackTime('Crypto: Calculating JWK thumbprint (RFC 7638)', () => getJwkThumbprint(rpKeyJwk));
   }
 
   const handoverInfo = [
@@ -679,11 +675,11 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
     handover
   ];
 
-  const sessionTranscriptCbor = trackTime('CBOR: Kodiere SessionTranscript', () => encodeCBOR(sessionTranscript));
-  console.log(`   ✔ SessionTranscript CBOR generiert (${sessionTranscriptCbor.length} Bytes).`);
+  const sessionTranscriptCbor = trackTime('CBOR: encoding SessionTranscript', () => encodeCBOR(sessionTranscript));
+  console.log(` ✔ SessionTranscript CBOR encoding complete (${sessionTranscriptCbor.length} bytes).`);
 
-  // 2. Erzeuge Erikas mdoc DeviceResponse CBOR-Dokument
-  console.log(`[mdoc 4] Erzeuge mdoc-Dokument und signiere Gerätebindung...`);
+  // 2. generating Erika Mustermann mdoc DeviceResponse CBOR document
+  console.log(`[mdoc 4] Genrating mdoc document and signing device binding...`);
 
   const mdNameSpace = {
     "org.iso.18013.5.1": {
@@ -730,7 +726,7 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
   const deviceResponseCbor = encodeCBOR(deviceResponse);
   const base64DeviceResponse = base64url(deviceResponseCbor);
 
-  // Callback payload zusammenbauen
+  // building callback payload
   const finalMdlBase64 = issuedData ? issuedData.credential : base64DeviceResponse;
   const cleartextPayload = {
     vp_token: {
@@ -749,7 +745,7 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
   let postContentType = 'application/x-www-form-urlencoded';
 
   if (useEncryption && rpKeyJwk) {
-    console.log(`[mdoc 5] Verschlüssele mdoc via JWE (ECDH-ES + AES-128-GCM)...`);
+    console.log(`[mdoc 5] Encrypting mdoc via JWE (ECDH-ES + AES-128-GCM)...`);
 
     const walletEncKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
     const walletEncPubKeyJwk = walletEncKeyPair.publicKey.export({ format: 'jwk' });
@@ -762,7 +758,7 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
 
     const cek = deriveConcatKDF(sharedSecret, 16, 'A128GCM');
 
-    const jweString = trackTime('Krypto: AES-128-GCM JWE Verschlüsselung', () => {
+    const jweString = trackTime('Crypto: AES-128-GCM JWE encryption', () => {
       const jweHeader = {
         alg: 'ECDH-ES',
         enc: 'A128GCM',
@@ -788,7 +784,7 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
     postBodyString = `vp_token=${encodeURIComponent(JSON.stringify(cleartextPayload.vp_token))}&wia_token=${encodeURIComponent(cleartextPayload.wia_token)}&state=${encodeURIComponent(sessionId)}`;
   }
 
-  console.log(`[mdoc 6] Übermittle direct_post.jwt Callback an den RP-Server...`);
+  console.log(`[mdoc 6] Transmitting direct_post.jwt callback to RP server...`);
   const callbackResponse = await trackTime('HTTP: direct_post Callback übermitteln',
     fetch(`${API_BASE}/api/presentation/callback`, {
       method: 'POST',
@@ -796,36 +792,36 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
       body: postBodyString
     }).then(res => res.json())
   );
-  console.log(`   ✔ Server meldet Redirect-URI: ${callbackResponse.redirect_uri}`);
+  console.log(` ✔ Server returns redirect URI: ${callbackResponse.redirect_uri}`);
 
-  console.log(`[mdoc 7] Frage finalen Verifizierungsstatus im Server ab...`);
+  console.log(`[mdoc 7] Requesting final verification status from server...`);
   const statusResponse = await trackTime('HTTP: Polling Onboarding Status',
     fetch(`${API_BASE}/api/presentation/status?sid=${sessionId}`).then(res => res.json())
   );
 
   console.log(`\n${COLOR_CYAN}================================================================${COLOR_RESET}`);
-  console.log(`${COLOR_BOLD}${COLOR_SUCCESS}🎯 STATUS DER PRÄSENTATIONS-VERIFIKATION: ${statusResponse.status}${COLOR_RESET}`);
+  console.log(`${COLOR_BOLD}${COLOR_SUCCESS}🎯 STATUS OF PRESENTATION VERIFICATION: ${statusResponse.status}${COLOR_RESET}`);
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
-  console.log(`Präsentiertes Format:             ${COLOR_BOLD}ISO mdoc (mDL)${COLOR_RESET}`);
-  console.log(`Transport-Verschlüsselung (JWE):  ${COLOR_BOLD}${statusResponse.isEncrypted ? 'JA 🔒 (direct_post.jwt)' : 'NEIN ⚠️ (Klartext direct_post)'}${COLOR_RESET}`);
-  console.log(`Übertragene Führerschein-Claims:`);
+  console.log(`Presented format:             ${COLOR_BOLD}ISO mdoc (mDL)${COLOR_RESET}`);
+  console.log(`Transport encryption (JWE):  ${COLOR_BOLD}${statusResponse.isEncrypted ? 'YES 🔒 (direct_post.jwt)' : 'NO ⚠️ (direct_post)'}${COLOR_RESET}`);
+  console.log(`Transmitted mDL claims:`);
   console.log(JSON.stringify(statusResponse.claims, null, 2));
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}\n`);
 }
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * PRINT STATS TABLE (Kryptografische & Netzwerk Performance-Auswertung)
+ * PRINT STATS TABLE (performance benchamrking)
  * ─────────────────────────────────────────────────────────────────────────────
  */
 function printStatsTable() {
-  console.log(`${COLOR_BOLD}${COLOR_CYAN}📊 KONSOLIDIERTE LAUFZEIT-STATISTIK DER TRANSAKTION${COLOR_RESET}`);
+  console.log(`${COLOR_BOLD}${COLOR_CYAN}📊 CONSOLIDATED TRANSACTION RUNTIME STATISTIC${COLOR_RESET}`);
 
   const col1Width = 55;
   const col2Width = 14;
 
   console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
-  console.log(`| ${COLOR_BOLD}${'Aktion / Kryptografischer Schritt'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${'Laufzeit'.padEnd(col2Width)}${COLOR_RESET} |`);
+  console.log(`| ${COLOR_BOLD}${'Action / Step'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${'Laufzeit'.padEnd(col2Width)}${COLOR_RESET} |`);
   console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
 
   let totalTime = 0;
@@ -840,11 +836,11 @@ function printStatsTable() {
   console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
   const totalTimeStr = totalTime.toFixed(2) + " ms";
   const totalPadding = ' '.repeat(Math.max(0, col2Width - totalTimeStr.length));
-  console.log(`| ${COLOR_BOLD}${'GESAMT-DURCHLAUFZEIT (Simulator)'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${COLOR_SUCCESS}${totalTimeStr}${COLOR_RESET}${totalPadding} |`);
+  console.log(`| ${COLOR_BOLD}${'TOTAL RUNTIME (simulator)'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${COLOR_SUCCESS}${totalTimeStr}${COLOR_RESET}${totalPadding} |`);
   console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
 }
 
 run().catch(err => {
-  console.error(`\n${COLOR_ERROR}❌ Fataler Fehler im Test-Harness:${COLOR_RESET}`, err);
+  console.error(`\n${COLOR_ERROR}❌ Fatal error during test execution:${COLOR_RESET}`, err);
   process.exit(1);
 });
