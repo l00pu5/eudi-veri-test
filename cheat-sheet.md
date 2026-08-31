@@ -1,13 +1,13 @@
-# 📄 EUDI Wallet Developer Cheat-Sheet: JSON-Strukturen & JWS-Header
+# 📄 EUDI Wallet Developer Cheat Sheet: JSON data structures & JWS headers
 
-Dieses Spickzettel (Cheat-Sheet) dient als kompakte, präzise Referenz für Entwickler zur Implementierung und zum Debugging von **OpenID4VCI (Ausstellung)** und **OpenID4VP (Präsentation)** im nationalen EUDI-Wallet-Ökosystem. Alle Datenstrukturen und Header entsprechen den aktuellen Spezifikationen von **eIDAS 2.0, HAIP 1.0, OpenID4VCI 1.0** und **OpenID4VP 1.0**.
+This cheat sheet shall serve as a compact reference for developers seeking to implement related functionality and for debugging purposes of **OpenID4VCI (issuance)** as well as **OpenID4VP (presentatoon)** transactions.
 
 ---
 
-## 🛠️ TEIL 1: OpenID4VCI (Ausstellung / Issuance)
+## PART 1: OpenID4VCI (Issuance)
 
-### 1.1 Credential Offer (Herausgabeangebot)
-Übertragen im QR-Code (by Value) oder per Link über das Schema `openid-credential-offer://`.
+### 1.1 Credential Offer
+Will be encoded in the QR code oder via plain URL with schema `openid-credential-offer://`.
 
 ```json
 {
@@ -21,7 +21,7 @@ Dieses Spickzettel (Cheat-Sheet) dient als kompakte, präzise Referenz für Entw
       "tx_code": {
         "length": 4,
         "input_mode": "numeric",
-        "description": "Geben Sie die 4-stellige PIN ein, die Sie per SMS erhalten haben."
+        "description": "Please enter your 4-digit PIN."
       }
     }
   }
@@ -29,10 +29,10 @@ Dieses Spickzettel (Cheat-Sheet) dient als kompakte, präzise Referenz für Entw
 ```
 
 ### 1.2 Token Request (Token-Anforderung)
-Gesendet per `POST /api/issuance/token` mit einem **DPoP-Proof**-Header im HTTPS-Header.
+Sent via `POST /api/issuance/token` with a **DPoP Proof** header in the HTTP(S) header.
 
-#### 1.2.1 DPoP-Header (HTTPS-Header: `DPoP`)
-Verhindert Session-Hijacking durch Bindung des Requests an den privaten Wallet-Schlüssel.
+#### 1.2.1 DPoP header (HTTPS header: `DPoP`)
+Prevents session hijacking by binding the request to the private wallet key.
 ```json
 // JOSE Header
 {
@@ -55,7 +55,7 @@ Verhindert Session-Hijacking durch Bindung des Requests an den privaten Wallet-S
 }
 ```
 
-#### 1.2.2 HTTP-POST Request-Body
+#### 1.2.2 HTTP-POST Request Body
 ```json
 {
   "grant_type": "urn:ietf:params:oauth:grant-type:pre-authorized_code",
@@ -68,7 +68,7 @@ Verhindert Session-Hijacking durch Bindung des Requests an den privaten Wallet-S
 ```
 
 #### 1.2.3 Wallet Instance Attestation (WIA) – Decoded Client Assertion
-Weist dem Server nach, dass es sich um eine echte, unmanipulierte App handelt (Säule 4).
+Proves to the server that the wallet instance is authentic / untampered
 ```json
 // Header
 {
@@ -94,7 +94,7 @@ Weist dem Server nach, dass es sich um eine echte, unmanipulierte App handelt (S
 }
 ```
 
-#### 1.2.4 WIA Proof of Possession (WIA-PoP) – Decoded Client Assertion PoP
+#### 1.2.4 WIA Proof of Possession (WIA PoP) – Decoded Client Assertion PoP
 ```json
 // Header
 {
@@ -111,7 +111,7 @@ Weist dem Server nach, dass es sich um eine echte, unmanipulierte App handelt (S
 }
 ```
 
-### 1.3 Token Response (Server-Antwort)
+### 1.3 Token Response (Server Rntwort)
 ```json
 {
   "access_token": "access_token_1f9b30c4ef73",
@@ -122,9 +122,8 @@ Weist dem Server nach, dass es sich um eine echte, unmanipulierte App handelt (S
 }
 ```
 
-### 1.4 Credential Request (Belegabruf)
-Gesendet per `POST /api/issuance/credential` mit gültigem DPoP Access Token im `Authorization`-Header (`Authorization: DPoP access_token_1f9b30c4ef73`).
-
+### 1.4 Credential Request
+Sent via `POST /api/issuance/credential` with valid DPoP Access Token in `Authorization` HTTP header (`Authorization: DPoP access_token_1f9b30c4ef73`).
 ```json
 {
   "credential_configuration_id": "PID_SD_JWT_VC",
@@ -136,8 +135,8 @@ Gesendet per `POST /api/issuance/credential` mit gültigem DPoP Access Token im 
 }
 ```
 
-#### 1.4.1 Decoded Proof JWT (Belegbesitznachweis / PoP-JWT)
-Beweist, dass der Belegbesitz-Schlüssel auf dem Smartphone generiert wurde und unter Kontrolle des Holders steht.
+#### 1.4.1 Decoded Proof JWT (PoP JWT)
+Proves that the PoP key has been generated on the smartphone and is under holder's control.
 ```json
 // Header
 {
@@ -160,32 +159,30 @@ Beweist, dass der Belegbesitz-Schlüssel auf dem Smartphone generiert wurde und 
 
 ---
 
-## 🔒 TEIL 2: OpenID4VP (Präsentation / Presentation)
+## PART 2: OpenID4VP (Presentation)
 
-### 2.1 QR-Code Deeplink (Verifizierer-Initiierung)
-Der QR-Code auf der Weboberfläche deklariert die sichere Endpoint-Auflösung via HTTPS-Schnittstellen.
-
+### 2.1 QR-Code Deeplink (Verifier Initiation)
 ```text
 openid4vp://?client_id=x509_san_dns:client.example.org&request_uri=https%3A%2F%2Fgaining-decaf-word.ngrok-free.dev%2Fapi%2Fpresentation%2Frequest-jwt%3Fsid%3Dsession_8f3d4c...&request_uri_method=get
 ```
 
 ### 2.2 Signed Request Object (JAR - RFC 9101)
-Zurückgegeben unter der `request_uri`.
+Returned via the `request_uri`.
 
-#### 2.2.1 JWS Header (mit X.509 `x5c` Zertifikats-Injektion)
-Zwingend erforderlich bei `client_id: x509_san_dns:client.example.org`.
+#### 2.2.1 JWS Header (with X.509 `x5c` Certificate Injection)
+Mandatory with `client_id: x509_san_dns:client.example.org`.
 
 ```json
 {
   "alg": "ES256",
   "typ": "oauth-authz-req+jwt",
   "x5c": [
-    "MIIB9DCCAZqgAwIBAgIUFHpWvV7NGRxON... (Base64-kodiertes X.509 Zertifikat von client.example.org)"
+    "MIIB9DCCAZqgAwIBAgIUFHpWvV7NGRxON... (Base64-encoded X.509 certificate from client.example.org)"
   ]
 }
 ```
 
-#### 2.2.2 Decoded JAR-Request Payload (mit DCQL-Query)
+#### 2.2.2 Decoded JAR Request Payload (with DCQL-Query)
 ```json
 {
   "iss": "x509_san_dns:client.example.org",
@@ -233,8 +230,8 @@ Zwingend erforderlich bei `client_id: x509_san_dns:client.example.org`.
 }
 ```
 
-### 2.3 direct_post.jwt Callback (Verschlüsselter Callback-POST)
-Gesendet per `POST /api/presentation/callback` im **JWE-Kompaktformat** (5 Segmente, Punkt-separiert).
+### 2.3 direct_post.jwt callback (encrypted callback POST)
+Sent via `POST /api/presentation/callback` as **JWE** (5 segments, dot-separated).
 
 #### 2.3.1 JWE Protected Header (Segment 1)
 ```json
@@ -250,7 +247,7 @@ Gesendet per `POST /api/presentation/callback` im **JWE-Kompaktformat** (5 Segme
 }
 ```
 
-#### 2.3.2 Decoded JWE Payload (Nach asynchroner Entschlüsselung)
+#### 2.3.2 Decoded JWE Payload (after async decryption)
 ```json
 {
   "vp_token": "<signed_vp_token_containing_claims_and_key_binding>",
@@ -260,7 +257,7 @@ Gesendet per `POST /api/presentation/callback` im **JWE-Kompaktformat** (5 Segme
 
 ---
 
-## 💡 Krypto-Gegenüberstellung: Signatur (JWS) vs. Verschlüsselung (JWE)
+## Crypto comparison: signature (JWS) vs. encryption (JWE)
 
-*   **JWS (JSON Web Signature):** Sichert den **Ursprung (Authentizität)** und die **Integrität**. Das JAR-Request-Object (JWS) beweist dem Smartphone, dass die Anfrage echt ist. Die Signatur des Holders auf dem Beleg beweist dem Verifizierer, dass der Beleg nicht manipuliert wurde.
-*   **JWE (JSON Web Encryption):** Sichert den **Transport (Vertraulichkeit)**. Mittels des elliptischen Sitzungsschlüssels (ECDH) verschlüsselt das Smartphone Erikas Identitätsdaten, sodass sie auf dem Rückkanal vor Abhören geschützt sind (selbst über unverschlüsselte Tunnel-Schnittstellen).
+*   **JWS (JSON Web Signature)**: Secures the **Origin (Autnenticity)** and the **Integrity**. The JAR Request Object (JWS) proves to the smartphone, that the request is genuine. The holder's signature on the credential proves to the verifier, that the credential hasn't been tampered with.
+*   **JWE (JSON Web Encryption)**: Secures the **Tranport**. Identity data are encrypted via elliptic session keys (ECDH) to prevent data disclosure on the backchannel even when transport is occurring via unsecured tunnels.
