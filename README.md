@@ -207,6 +207,7 @@ In order for the smartphone wallet app to accept the self-signed developer certi
 
 ### Requirements
 * **Node.js** (>=18.x)
+* **ngrok**
 
 ### Installing dependencies
 Clone the repo and install the depencies as follows (will pull dependencies from `package.json`):
@@ -245,6 +246,14 @@ Launch the Express backend on port `3000`. The server will automatically generat
 node eudi-verifier-server_demo.js
 ```
 *Output*: Server is running on `http://localhost:3000`, awaiting incoming connections.
+
+#### HTTPS tunneling via ngrok
+If the localhost instance should be accessible from the outside and an HTTPS tunnel should be provided, issue the following command:
+```bash
+ngrok http 3000
+```
+
+**ATTENTION**: please ensure that the public URL that `ngrok` is printing to the terminal is added to `.env` accordingly so dynamic URLs can be built properly by the server that will take the `ngrok` tunnel URL into consideration. This is to ensure that e.g. the QR codes can be scanned via a smartphone-hosted wallet app and the smartphone can reach the server instance.
 
 ### Step 2: launching the test harness / simulator script
 Execute the simulator in the desired operation mode:
