@@ -969,22 +969,22 @@
 
   <!-- Main Content Grid -->
   <main>
-    <!-- Linker Bereich: QR-Code & Steuerungs-Panel (col-span-5) -->
+    <!-- left area: QR code & control panel -->
     <section class="col-span-5 space-y-6">
       <div class="card">
         <div class="card-glow"></div>
         <div class="tab-container">
-          <button class="tab-btn active" id="tab-btn-presentation" onclick="switchTab('presentation')">Präsentation
+          <button class="tab-btn active" id="tab-btn-presentation" onclick="switchTab('presentation')">Presentation
             (RP)</button>
-          <button class="tab-btn" id="tab-btn-issuance" onclick="switchTab('issuance')">Ausstellung (Issuer)</button>
+          <button class="tab-btn" id="tab-btn-issuance" onclick="switchTab('issuance')">Issuance</button>
         </div>
 
         <!-- TAB 1: PRESENTATION CONTENT -->
         <div id="tab-content-presentation" class="tab-content active">
-          <h2 class="card-title">Identität nachweisen</h2>
+          <h2 class="card-title">Present identity</h2>
           <p class="card-desc">
-            Klicken Sie auf den Button, um eine Onboarding-Session zu initiieren. Scannen Sie den Barcode mit der EUDI
-            Wallet-App oder testen Sie den Server über einen Krypto-Simulator.
+            Click on the button to initiate an onboarding session. Scan the QR code with the EUDI wallet app or launch
+            the simulator script to test the flow.
           </p>
           <div class="trigger-group">
             <button id="btn-initiate" onclick="startOnboarding()" class="btn-primary">
@@ -992,81 +992,81 @@
                 <path stroke-linecap="round" stroke-linejoin="round"
                   d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
               </svg>
-              Authentisierung starten
+              Start Authentication
             </button>
           </div>
         </div>
 
         <!-- TAB 2: ISSUANCE CONTENT -->
         <div id="tab-content-issuance" class="tab-content">
-          <h2 class="card-title" id="issuance-title">Belege ausstellen (OpenID4VCI)</h2>
+          <h2 class="card-title" id="issuance-title">Issue crdentials (OpenID4VCI)</h2>
           <p class="card-desc" id="issuance-desc">
-            Definieren Sie hier Ihre benutzerdefinierten Nachweisdaten und Gültigkeitsdauer. Klicken Sie dann auf
-            Angebot erzeugen, um den Credential Offer QR-Code anzuzeigen.
+            Define your credential attreibutes and validity period. Click on "Credential offer" to display the
+            credential offer as a QR code.
           </p>
 
-          <!-- Nachweistyp Dropdown -->
+          <!-- Credential type dropdown -->
           <div class="form-group" style="margin-bottom: 1.25rem;">
-            <label class="form-label" for="iss-credential-type">Nachweistyp (Credential Type)</label>
+            <label class="form-label" for="iss-credential-type">Credential Type</label>
             <select class="form-input" id="iss-credential-type" onchange="toggleIssuanceFields()"
               style="border: 2px solid var(--brand-color); font-weight: bold;">
-              <option value="dc+sd-jwt">Personalausweis (PID / SD-JWT VC)</option>
-              <option value="mso_mdoc">Führerschein (mDL / ISO mdoc)</option>
+              <option value="dc+sd-jwt">Idendity card (PID / SD-JWT VC)</option>
+              <option value="mso_mdoc">Driver license (mDL / ISO mdoc)</option>
             </select>
           </div>
 
           <div class="form-row grid-2">
             <div class="form-group">
-              <label class="form-label" for="iss-given-name">Vorname</label>
+              <label class="form-label" for="iss-given-name">First name</label>
               <input class="form-input" type="text" id="iss-given-name" value="Erika">
             </div>
             <div class="form-group">
-              <label class="form-label" for="iss-family-name">Nachname</label>
+              <label class="form-label" for="iss-family-name">Last name</label>
               <input class="form-input" type="text" id="iss-family-name" value="Mustermann">
             </div>
           </div>
 
           <div class="form-row grid-2">
             <div class="form-group">
-              <label class="form-label" for="iss-birthdate">Geburtsdatum</label>
+              <label class="form-label" for="iss-birthdate">Date of birth</label>
               <input class="form-input" type="date" id="iss-birthdate" value="1998-08-12">
             </div>
             <div class="form-group">
-              <label class="form-label" for="iss-country">Land / Ausstellungsland</label>
+              <label class="form-label" for="iss-country">Issuer country</label>
               <input class="form-input" type="text" id="iss-country" value="DE">
             </div>
           </div>
 
-          <!-- PID-Only Fields -->
+          <!-- PID-only Fields -->
           <div id="iss-pid-only-fields" style="display: block;">
             <div class="form-row grid-2">
               <div class="form-group">
-                <label class="form-label" for="iss-nationalities">Staatsangehörigkeit</label>
+                <label class="form-label" for="iss-nationalities">Nationality</label>
                 <input class="form-input" type="text" id="iss-nationalities" value="DE">
               </div>
               <div class="form-group">
-                <label class="form-label" for="iss-street">Straße &amp; Hausnummer</label>
+                <label class="form-label" for="iss-street">Street &amp; house number</label>
                 <input class="form-input" type="text" id="iss-street" value="Heidestraße 17">
               </div>
             </div>
 
             <div class="form-row grid-3">
               <div class="form-group">
-                <label class="form-label" for="iss-zip">PLZ</label>
+                <label class="form-label" for="iss-zip">ZIP code</label>
                 <input class="form-input" type="text" id="iss-zip" value="50667">
               </div>
               <div class="form-group">
-                <label class="form-label" for="iss-locality">Ort</label>
+                <label class="form-label" for="iss-locality">City</label>
                 <input class="form-input" type="text" id="iss-locality" value="Köln">
               </div>
             </div>
           </div>
 
-          <!-- mDL-Only Fields -->
+          <!-- mDL-only Fields -->
           <div id="iss-mdl-only-fields"
             style="display: none; margin-bottom: 1.25rem; background-color: var(--brand-light); padding: 1rem; border-radius: 0.75rem; border: 1px dashed var(--brand-color);">
             <div class="form-group">
-              <label class="form-label" for="iss-privileges" style="color: var(--brand-color);">Fahrerlaubnisklassen
+              <label class="form-label" for="iss-privileges" style="color: var(--brand-color);">Driver license class
                 (z.B. A, B, C, CE)</label>
               <input class="form-input" type="text" id="iss-privileges" value="B">
             </div>
@@ -1074,12 +1074,12 @@
 
           <div class="form-row grid-2" style="margin-top: 0.5rem; align-items: end;">
             <div class="form-group">
-              <label class="form-label" for="iss-validity">Gültigkeit (Tage)</label>
+              <label class="form-label" for="iss-validity">Validity (days)</label>
               <input class="form-input" type="number" id="iss-validity" value="90">
             </div>
             <div class="form-group" style="justify-content: flex-end;">
               <button id="btn-initiate-issuance" onclick="startIssuance()" class="btn-primary">
-                Angebot erzeugen
+                Credential offer
               </button>
             </div>
           </div>
@@ -1121,13 +1121,13 @@
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 style="opacity: 0.75;"></path>
             </svg>
-            <span class="status-text" id="status-text">Warte auf Wallet-Callback...</span>
+            <span class="status-text" id="status-text">Waiting for wallet callback...</span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Rechter Bereich: Ergebnisse & Audit-Panel (col-span-7) -->
+    <!-- Right area: Results & audit panel -->
     <section class="col-span-7 space-y-6">
 
       <!-- Default Placeholder -->
@@ -1139,43 +1139,43 @@
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h3 class="placeholder-title">Keine aktiven Onboarding-Daten</h3>
+        <h3 class="placeholder-title">No active onboarding data</h3>
         <p class="placeholder-desc">
-          Starten Sie die Authentisierung auf der linken Seite. Sobald Erikas Daten übermittelt werden, erscheint hier
-          der verifizierte Profilauszug.
+          Start the authentication process on the left side. As soon as Erika's data have been transmitted, the verified
+          profile excerpt will show up here.
         </p>
       </div>
 
-      <!-- Profile View & Audit Panel (Zustand: SUCCESS) -->
+      <!-- Profile View & Audit Panel (condition: SUCCESS) -->
       <div id="success-view" class="success-view hidden">
 
-        <!-- Transportkanal & Verschlüsselung Panel -->
+        <!-- transport channel & encryption panel -->
         <div id="transport-security-card" class="transport-security-card">
           <div id="transport-icon-container" class="transport-icon-wrapper">
-            <!-- SVG wird dynamisch befüllt -->
+            <!-- SVG is filled in dynamically -->
           </div>
           <div class="transport-info">
             <h3 class="transport-title">
-              Transport-Sicherheit (Kanal)
+              Transport security (channel)
               <span id="transport-badge" class="transport-badge"></span>
             </h3>
             <p id="transport-desc" class="transport-desc"></p>
           </div>
         </div>
 
-        <!-- Dynamisches Dokumenten-Profil (PID oder mDL) -->
+        <!-- dynamic document profile (PID or mDL) -->
         <div class="credential-card">
           <div id="credential-header" class="credential-header">
             <div class="credential-header-left">
               <div id="credential-icon-container" class="credential-icon-container">
-                <!-- Dynamisches SVG Icon -->
+                <!-- dynamic SVG icon -->
               </div>
               <div>
                 <p id="credential-type" class="credential-type-label">EUDI Personal Identification Data (PID)</p>
-                <h3 id="credential-title" class="credential-title-text">Muster-Identität</h3>
+                <h3 id="credential-title" class="credential-title-text">Sample identity</h3>
               </div>
             </div>
-            <span class="credential-badge">Status: Verifiziert</span>
+            <span class="credential-badge">Status: verified</span>
           </div>
 
           <div class="credential-body">
@@ -1183,30 +1183,30 @@
             <div id="claims-pid-container" class="claims-grid">
               <div class="space-y-6">
                 <div class="claim-group">
-                  <label class="claim-label">Vorname</label>
+                  <label class="claim-label">First name</label>
                   <p class="claim-value" id="claim-given_name">-</p>
                 </div>
                 <div class="claim-group">
-                  <label class="claim-label">Nachname</label>
+                  <label class="claim-label">Last name</label>
                   <p class="claim-value" id="claim-family_name">-</p>
                 </div>
                 <div class="claim-group">
-                  <label class="claim-label">Geburtsdatum</label>
+                  <label class="claim-label">Date of birth</label>
                   <p class="claim-value" id="claim-birthdate">-</p>
                 </div>
                 <div class="claim-group">
-                  <label class="claim-label">Altersbestätigung (Volljährigkeit)</label>
+                  <label class="claim-label">Age verification (maturity)</label>
                   <p class="claim-value" id="claim-is_over_18">-</p>
                 </div>
               </div>
 
               <div class="claims-right-col space-y-6">
                 <div class="claim-group">
-                  <label class="claim-label">Staatsangehörigkeit</label>
+                  <label class="claim-label">Nationality</label>
                   <p class="claim-value" id="claim-nationalities">-</p>
                 </div>
                 <div class="claim-group">
-                  <label class="claim-label">Wohnsitz / Meldeadresse</label>
+                  <label class="claim-label">Residence address</label>
                   <div class="claim-value" id="claim-address"
                     style="font-weight: normal; color: var(--text-secondary);">-</div>
                 </div>
@@ -1217,31 +1217,30 @@
             <div id="claims-mdl-container" class="claims-grid hidden">
               <div class="space-y-6">
                 <div class="claim-group">
-                  <label class="claim-label">Vorname</label>
+                  <label class="claim-label">First name</label>
                   <p class="claim-value" id="mdl-given_name">-</p>
                 </div>
                 <div class="claim-group">
-                  <label class="claim-label">Nachname</label>
+                  <label class="claim-label">Last name</label>
                   <p class="claim-value" id="mdl-family_name">-</p>
                 </div>
                 <div class="claim-group">
-                  <label class="claim-label">Geburtsdatum</label>
+                  <label class="claim-label">Date of birth</label>
                   <p class="claim-value" id="mdl-birthdate">-</p>
                 </div>
               </div>
 
               <div class="claims-right-col space-y-6">
                 <div class="claim-group">
-                  <label class="claim-label">Fahrerlaubnisklassen</label>
+                  <label class="claim-label">Driver license class</label>
                   <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
                     <span id="mdl-privileges"
                       style="padding: 0.25rem 0.5rem; background-color: rgba(236, 72, 153, 0.1); color: var(--pink-color); border: 1px solid rgba(236, 72, 153, 0.2); font-weight: bold; border-radius: 0.375rem; font-size: 0.75rem;">B</span>
-                    <span style="font-size: 0.75rem; color: var(--text-secondary);">Kraftwagen bis 3,5t (Klasse
-                      B)</span>
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">Class B</span>
                   </div>
                 </div>
                 <div class="claim-group">
-                  <label class="claim-label">Ausstellungsland</label>
+                  <label class="claim-label">Issuing country</label>
                   <p class="claim-value" id="mdl-country">-</p>
                 </div>
               </div>
@@ -1249,7 +1248,7 @@
           </div>
         </div>
 
-        <!-- 4 Säulen Audit Log -->
+        <!-- audit log -->
         <div class="pillars-card">
           <h3 class="pillars-header">
             <svg class="btn-icon" style="color: var(--brand-color);" fill="none" viewBox="0 0 24 24"
@@ -1257,11 +1256,11 @@
               <path stroke-linecap="round" stroke-linejoin="round"
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            Kryptografische Verifizierungs-Säulen
+            Cryptographic verification
           </h3>
 
           <div class="pillars-list">
-            <!-- Säule 1 -->
+            <!-- Pillar 1 -->
             <div class="pillar-row">
               <div class="pillar-icon-wrapper">
                 <svg class="btn-icon" fill="currentColor" viewBox="0 0 20 20" style="height: 1.25rem; width: 1.25rem;">
@@ -1271,13 +1270,13 @@
                 </svg>
               </div>
               <div class="pillar-content">
-                <p class="pillar-title">Säule 1: Aussteller-Authentizität (Issuer Authenticity)</p>
-                <p class="pillar-desc" id="pillar1-desc">Digitale ECDSA-P256-Signatur des Herausgebers (Bundesdruckerei
-                  / PID- oder mDL-Herausgeber) erfolgreich gegen staatliche Trust-Root verifiziert.</p>
+                <p class="pillar-title">Pillar 1: Issuer authenticity</p>
+                <p class="pillar-desc" id="pillar1-desc">Digital ECDSA P256 signature of issuer (Bundesdruckerei
+                  / PID or mDL issuer) successfully verified against federal trust root.</p>
               </div>
             </div>
 
-            <!-- Säule 2 -->
+            <!-- Pillar 2 -->
             <div class="pillar-row">
               <div class="pillar-icon-wrapper">
                 <svg class="btn-icon" fill="currentColor" viewBox="0 0 20 20" style="height: 1.25rem; width: 1.25rem;">
@@ -1287,13 +1286,14 @@
                 </svg>
               </div>
               <div class="pillar-content">
-                <p class="pillar-title" id="pillar2-title">Säule 2: Gerätebindung (Device / Holder Key Binding)</p>
-                <p class="pillar-desc" id="pillar2-desc">Die kryptografische Geräteprüfung wurde erfolgreich validiert.
-                  Die Bindung an das hardwarebasierte Secure Element des Nutzers ist bewiesen.</p>
+                <p class="pillar-title" id="pillar2-title">Piallr 2: Device / Holder Key Binding</p>
+                <p class="pillar-desc" id="pillar2-desc">The cryptographic device verification has been validated
+                  successfully. The binding to the hardware-based secure element Secure Element of the user has been
+                  established.</p>
               </div>
             </div>
 
-            <!-- Säule 3 -->
+            <!-- Pillar 3 -->
             <div class="pillar-row">
               <div class="pillar-icon-wrapper">
                 <svg class="btn-icon" fill="currentColor" viewBox="0 0 20 20" style="height: 1.25rem; width: 1.25rem;">
@@ -1303,13 +1303,13 @@
                 </svg>
               </div>
               <div class="pillar-content">
-                <p class="pillar-title">Säule 3: Echtzeit-Sperrstatus (Revocation Checks)</p>
-                <p class="pillar-desc">Sperrabfrage (Token Status List für SD-JWT / CRL für mdoc) durchgeführt. Der
-                  digitale Ausweis ist uneingeschränkt aktiv und gültig.</p>
+                <p class="pillar-title">Pillar 3: Recocation status check</p>
+                <p class="pillar-desc">Recvocation status inquiry (Token Status List for SD-JWT / CRL for mdoc) has been
+                  executed. The credential is valid.</p>
               </div>
             </div>
 
-            <!-- Säule 4 -->
+            <!-- Pillar 4 -->
             <div class="pillar-row">
               <div class="pillar-icon-wrapper">
                 <svg class="btn-icon" fill="currentColor" viewBox="0 0 20 20" style="height: 1.25rem; width: 1.25rem;">
@@ -1319,9 +1319,8 @@
                 </svg>
               </div>
               <div class="pillar-content">
-                <p class="pillar-title">Säule 4: App-Attestierung (Wallet Integrity Validation)</p>
-                <p class="pillar-desc">Wallet Instance Attestation (WIA) erfolgreich geprüft. Die anfragende
-                  Wallet-Anwendung ist im eIDAS-WIA-Verzeichnis als zertifizierte Original-App registriert.</p>
+                <p class="pillar-title">Pillar 4: WIA (app attestation)</p>
+                <p class="pillar-desc">Wallet Instance Attestation (WIA) verified successfully.</p>
               </div>
             </div>
           </div>
@@ -1337,49 +1336,48 @@
                   d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Kryptografischer Audit-Pfad (Entwickler-Analyse)
+              Cryptographic audit path
             </h3>
             <span class="audit-panel-arrow" id="crypto-arrow">▼</span>
           </div>
           <div class="audit-panel-content hidden" id="crypto-audit-content">
             <!-- SD-JWT Audit View -->
             <div id="sd-jwt-audit" class="hidden">
-              <h4 class="audit-section-title">Enthüllte Attribute (Disclosures) & Hash-Matching</h4>
+              <h4 class="audit-section-title">Disclosed attributes & hash matching</h4>
               <div class="table-responsive">
                 <table class="disclosure-table">
                   <thead>
                     <tr>
-                      <th>Attribut</th>
-                      <th>Klartext-Wert</th>
-                      <th>Salz (Salt)</th>
-                      <th>SHA-256 Hash</th>
-                      <th style="text-align:right">Integrität</th>
+                      <th>Attribute</th>
+                      <th>Clear text value</th>
+                      <th>Salt</th>
+                      <th>SHA-256 hash</th>
+                      <th style="text-align:right">Integrity</th>
                     </tr>
                   </thead>
                   <tbody id="sd-disclosure-table-body">
-                    <!-- Dynamisch befüllt -->
+                    <!-- filled dynamically -->
                   </tbody>
                 </table>
               </div>
 
-              <h4 class="audit-section-title" style="margin-top: 1.5rem;">Vom Wallet einbehaltene Attribute
-                (Minimierung)</h4>
+              <h4 class="audit-section-title" style="margin-top: 1.5rem;">Undisclosed attributes (data minimization)
+              </h4>
               <div id="sd-hidden-list" class="hidden-hash-container">
-                <!-- Dynamisch befüllt -->
+                <!-- filled dynamically -->
               </div>
             </div>
 
             <!-- mdoc Audit View -->
             <div id="mdoc-audit" class="hidden">
-              <h4 class="audit-section-title">ISO/IEC 18013-5 SessionTranscript & Handover</h4>
+              <h4 class="audit-section-title">ISO/IEC 18013-5 SessionTranscript & handover</h4>
               <div
                 style="background-color: #f1f5f9; padding: 1rem; border-radius: 0.5rem; font-family: monospace; font-size: 0.75rem; border: 1px solid var(--border-color); line-height: 1.5; color: var(--text-secondary);">
                 <p style="margin: 0 0 0.5rem 0; font-weight: bold; color: var(--brand-color);">✔ SessionTranscript
-                  Handshake erfolgreich verifiziert</p>
+                  Handshake verified successfully</p>
                 <p style="margin: 0 0 0.5rem 0;">HandoverInfo: ["x509_san_dns:client.example.org", nonce, jwkThumbprint,
                   responseUri]</p>
-                <p style="margin: 0;">Die kryptografische Gerätebindung wurde durch das mdoc-DeviceSignature-Verfahren
-                  über das SessionTranscript vollständig validiert.</p>
+                <p style="margin: 0;">Cryptographic device binding has been validated.</p>
               </div>
             </div>
           </div>
@@ -1391,7 +1389,7 @@
   <!-- Footer -->
   <footer>
     <div class="footer-container">
-      <p>EUDI Wallet Sandbox © 2026. Lizenziert unter Creative Commons Attribution 4.0 International.</p>
+      <p>EUDI Wallet Sandbox © 2026. Licensed under Creative Commons Attribution 4.0 International.</p>
     </div>
   </footer>
 
@@ -1475,7 +1473,7 @@
             document.getElementById('session-id-display').innerText = data.sessionId;
 
             document.getElementById('qr-container').classList.remove('hidden');
-            document.getElementById('status-text').innerText = "Warte auf Wallet-Kopplung (Ausstellung)...";
+            document.getElementById('status-text').innerText = "Waiting for wallet coupling (issuance)...";
 
             if (pollInterval) clearInterval(pollInterval);
             pollInterval = setInterval(() => {
@@ -1485,24 +1483,24 @@
                   if (statusData.status === 'SUCCESS') {
                     clearInterval(pollInterval);
                     document.getElementById('status-container').classList.add('hidden');
-                    alert("Ausweis erfolgreich an Wallet ausgestellt!");
+                    alert("PID issued to wallet successfully!");
                     resetUI();
                   } else if (statusData.status === 'FAILED') {
                     clearInterval(pollInterval);
-                    alert("Ausstellung fehlgeschlagen: " + statusData.errors.join(", "));
+                    alert("Issuance has failed: " + statusData.errors.join(", "));
                     resetUI();
                   }
                 })
                 .catch(err => console.error("Issuance polling error: ", err));
             }, 2000);
           } else {
-            alert("Sitzung konnte nicht initiiert werden.");
+            alert("Unable to initiate session.");
             resetUI();
           }
         })
         .catch(err => {
           console.error(err);
-          alert("Verbindung zum Server fehlgeschlagen.");
+          alert("Connection attempt to server has failed.");
           resetUI();
         });
     }
@@ -1551,13 +1549,13 @@
             if (pollInterval) clearInterval(pollInterval);
             pollInterval = setInterval(() => pollSession(data.pollEndpoint), 2000);
           } else {
-            alert("Session konnte nicht initiiert werden.");
+            alert("Unable to initiate session.");
             resetUI();
           }
         })
         .catch(err => {
           console.error(err);
-          alert("Verbindung zum Server fehlgeschlagen.");
+          alert("Connection attempt to server has failed.");
           resetUI();
         });
     }
@@ -1571,7 +1569,7 @@
             displaySuccess(data);
           } else if (data.status === 'FAILED') {
             clearInterval(pollInterval);
-            alert("Kryptografische 4-Säulen-Validierung fehlgeschlagen: " + data.errors.join(", "));
+            alert("Cryptographic validation failed: " + data.errors.join(", "));
             resetUI();
           }
         })
@@ -1587,7 +1585,6 @@
       const claims = data.claims || {};
       const isMdoc = data.format === 'ISO mdoc';
 
-      // Dokumenten-Header, Icon und Container anpassen
       const credentialHeader = document.getElementById('credential-header');
       const credentialIcon = document.getElementById('credential-icon-container');
       const credentialType = document.getElementById('credential-type');
@@ -1604,9 +1601,9 @@
         // mDL / mdoc Style
         credentialHeader.className = "credential-header mdoc-style";
         credentialType.innerText = "EUDI Mobile Driving Licence (mDL)";
-        credentialTitle.innerText = "Fahrerlaubnis (Klasse B)";
+        credentialTitle.innerText = "Driver license (class B)";
 
-        // mDL Icon (Lenkrad / Auto)
+        // mDL Icon
         credentialIcon.innerHTML = `
                     <svg class="btn-icon" style="color: white; height: 1.5rem; width: 1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -1622,21 +1619,21 @@
         document.getElementById('mdl-privileges').innerText = claims.driving_privileges || 'B';
         document.getElementById('mdl-country').innerText = claims.issuing_country || 'DE';
 
-        // Pillars anpassen
-        p1Desc.innerText = "Digitale Signatur des mDL-Herausgebers erfolgreich über die CBOR-Dokumentenstruktur (mso_mdoc) verifiziert. Die Authentizität der Fahrerlaubnis-Daten ist bewiesen.";
-        p2Title.innerText = "Säule 2: mdoc-Session Handover & Gerätebindung";
-        p2Desc.innerText = "Kryptografische Signatur über das SessionTranscript gemäß ISO/IEC 18013-5 erfolgreich geprüft. Die Gerätebindung schützt die Führerscheinpräsentation vor Replay-Angriffen.";
+        // adapt pillars
+        p1Desc.innerText = "Digital signature of the mDL issuer has been verified successsfully via the CBOR document structure (mso_mdoc). Authenticity of the mDL data has been established.";
+        p2Title.innerText = "Pillar 2: mdoc session handover & device binding";
+        p2Desc.innerText = "Cryptographic signature successfuly verified via SessionTranscript. Device binding is protecting the mDL presentation against reply attacks.";
 
-        // mdoc Integritäts-Log befüllen
+        // mdoc integrity log
         document.getElementById('sd-jwt-audit').classList.add('hidden');
         document.getElementById('mdoc-audit').classList.remove('hidden');
       } else {
         // PID / SD-JWT Style
         credentialHeader.className = "credential-header pid-style";
         credentialType.innerText = "EUDI Personal Identification Data (PID)";
-        credentialTitle.innerText = "Personen-Identitätsnachweis";
+        credentialTitle.innerText = "PID";
 
-        // PID Icon (Ausweis)
+        // PID icon
         credentialIcon.innerHTML = `
                     <svg class="btn-icon" style="color: white; height: 1.5rem; width: 1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.333 0 4 .667 4 2V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-1c0-1.333 2.667-2 4-2z" />
@@ -1663,12 +1660,12 @@
           document.getElementById('claim-address').innerText = address || 'N/A';
         }
 
-        // Pillars auf PID zurücksetzen
-        p1Desc.innerText = "Digitale ECDSA-P256-Signatur des PID-Herausgebers (Bundesdruckerei) erfolgreich verifiziert. Die Hashes im übergebenen SD-JWT-Ausweis stimmen mathematisch überein.";
-        p2Title.innerText = "Säule 2: Gerätebindung (Device / Holder Key Binding)";
-        p2Desc.innerText = "Die kryptografische Geräteprüfung wurde erfolgreich validiert. Die Bindung an das hardwarebasierte Secure Element des Nutzers ist bewiesen.";
+        // reset pillars on PID
+        p1Desc.innerText = "Digital ECDSA P256 signature of the PID verifier (Bundesdruckerei) verified successfully. SD-JWT hashes are matching mathematically.";
+        p2Title.innerText = "Pillar 2: Device / Holder Key Binding";
+        p2Desc.innerText = "Cryptographic device validation has been validated successfully. Binding to the hardware-based Secure Element of the user has been established.";
 
-        // SD-JWT Integritäts-Log befüllen
+        // SD-JWT integrity log
         document.getElementById('sd-jwt-audit').classList.remove('hidden');
         document.getElementById('mdoc-audit').classList.add('hidden');
 
@@ -1717,18 +1714,18 @@
         });
 
         if (hiddenCount === 0) {
-          hiddenList.innerHTML = `<p style="font-size: 0.75rem; color: var(--text-secondary); font-style: italic;">Keine unenthüllten Attribute. Alle übermittelten Hashes wurden offengelegt.</p>`;
+          hiddenList.innerHTML = `<p style="font-size: 0.75rem; color: var(--text-secondary); font-style: italic;">No enveloped attributes. All hashes will be disclosed.</p>`;
         }
       }
 
-      // Transportkanal und Verschlüsselungskarte aktualisieren
+      // update transport channel and encryption card
       const transportCard = document.getElementById('transport-security-card');
       const iconContainer = document.getElementById('transport-icon-container');
       const badge = document.getElementById('transport-badge');
       const desc = document.getElementById('transport-desc');
 
       if (data.isEncrypted) {
-        // JWE-Verschlüsselter Status
+        // JWE-encrypted status
         transportCard.className = "transport-security-card encrypted-style";
         iconContainer.className = "transport-icon-wrapper encrypted";
         iconContainer.innerHTML = `
@@ -1737,10 +1734,10 @@
                     </svg>
                 `;
         badge.className = "transport-badge encrypted";
-        badge.innerText = "Ende-zu-Ende verschlüsselt (JWE)";
-        desc.innerText = "Die Identitätsdaten wurden auf Anwendungsebene via JSON Web Encryption (JWE) mit dem elliptischen ECDH-Sitzungsschlüssel der Onboarding-Sitzung verschlüsselt. Ein Mitlesen der personenbezogenen Daten auf dem Callback-Kanal (direct_post.jwt) war unmöglich.";
+        badge.innerText = "End-to-end encrypted (JWE)";
+        desc.innerText = "Identity data have been encrypted on application layer via JWE.";
       } else {
-        // Unverschlüsselter Status (Plain Fallback / Mock)
+        // unencrypted status (fallback / mock)
         transportCard.className = "transport-security-card plain-style";
         iconContainer.className = "transport-icon-wrapper plain";
         iconContainer.innerHTML = `
@@ -1749,8 +1746,8 @@
                     </svg>
                 `;
         badge.className = "transport-badge plain";
-        badge.innerText = "Fallback-Kanal (Unverschlüsselt)";
-        desc.innerText = "Die Identitätsdaten wurden im Klartext über den unverschlüsselten direct_post Endpoint empfangen. Dies ist der Fallback-Kanal für unkomplizierte lokale Demozwecke und Shell-basierte Wallet-Simulationsskripte im Test-Harness.";
+        badge.innerText = "Fallback channel (unencrypted)";
+        desc.innerText = "Identity data have been received unencrypted via direct_post (used for loal demo purposes).";
       }
     }
 
@@ -1791,7 +1788,7 @@
       };
 
       const errorHandler = (err) => {
-        console.error('Kopieren fehlgeschlagen: ', err);
+        console.error('Copy failed: ', err);
         const displaySpan = document.getElementById('session-id-display');
         if (displaySpan) {
           const range = document.createRange();
