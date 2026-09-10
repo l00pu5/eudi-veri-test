@@ -9,17 +9,19 @@
  *   --mode=3 (e2e):       End-to-end test: dynamic issuance (OpenID4VCI) + encrypted presentation (OpenID4VP) of a SD-JWT PID
  *   --mode=4 (mdoc):      CBOR- and mdoc-based mDL presentation with SessionTranscript and binary DeviceResponse CBOR simulation
  *   --mode=5 (mdoc e2e):  mDL end-to-end test (mDL issuance + mdoc presentation) 
+ *   --mode=6 (deferred):  Deferred issuance simulation with async handshake 
  * 
- * Ausführung:
+ * Execution:
  *   node eudi-test-harness_demo.js --mode=4
  */
 
 const crypto = require('crypto');
 const fs = require('fs');
+const http = require('http');
 
-const API_BASE = 'http://localhost:3000';
+let API_BASE = 'http://localhost:3000';
 
-// ANSCI escape codes for colored terminal output
+// ANSI escape codes for colored terminal output
 const COLOR_RESET = '\x1b[0m';
 const COLOR_INFO = '\x1b[34m';
 const COLOR_SUCCESS = '\x1b[32m';
@@ -92,7 +94,7 @@ function encodeCBOR(val) {
     }
     return Buffer.concat([encodeTypeAndLength(5, keys.length), ...encodedPairs]);
   }
-  throw new Error("Unsupported CBOR data type:" + typeof val);
+  throw new Error("Unsupported CBOR data type: " + typeof val);
 }
 
 // aux function for base64url encoding
@@ -101,7 +103,7 @@ function base64url(strOrBuffer) {
   return buffer.toString('base64url');
 }
 
-// aux function for JWK thumbprint (RFC 7638)
+// aux function for JWK thumbprint
 function getJwkThumbprint(jwk) {
   const sortedJwk = {
     crv: jwk.crv,
@@ -127,40 +129,21 @@ function signJws(header, payload, privateKey) {
 }
 
 /**
- * Concat KDF acc. RFC 7518 for CEK derivation (AES-128-GCM)
+ * Concat KDF in accordance with RFC 7518 for CEK derivation (AES-128-GCM)
  */
-function deriveConcatKDF(sharedSecret, keyLenBytes, alg, apu, apv) {
+function deriveConcatKDF(sharedSecret, keyLenBytes, alg) {
   const roundOutputs = [];
   let counter = 1;
   const keyLenBits = keyLenBytes * 8;
 
-  // AlgorithmID: 32-bit length prefix + alg string bytes
   const algBuffer = Buffer.from(alg, 'ascii');
-  const algLen = Buffer.alloc(4);
-  algLen.writeUInt32BE(algBuffer.length, 0);
-  const algorithmID = Buffer.concat([algLen, algBuffer]);
-
-  // PartyUInfo: 32-bit length prefix + apu bytes (if present, else empty)
-  const apuBuffer = apu ? Buffer.from(apu, 'base64url') : Buffer.alloc(0);
-  const apuLen = Buffer.alloc(4);
-  apuLen.writeUInt32BE(apuBuffer.length, 0);
-  const partyUInfo = Buffer.concat([apuLen, apuBuffer]);
-
-  // PartyVInfo: 32-bit length prefix + apv bytes (if present, else empty)
-  const apvBuffer = apv ? Buffer.from(apv, 'base64url') : Buffer.alloc(0);
-  const apvLen = Buffer.alloc(4);
-  apvLen.writeUInt32BE(apvBuffer.length, 0);
-  const partyVInfo = Buffer.concat([apvLen, apvBuffer]);
-
-  // SuppPubInfo: 32-bit big-endian integer representing key length in bits
   const suppPubInfo = Buffer.alloc(4);
   suppPubInfo.writeUInt32BE(keyLenBits, 0);
 
-  // Concat all to form fixedInfo (OtherInfo)
   const fixedInfo = Buffer.concat([
-    algorithmID,
-    partyUInfo,
-    partyVInfo,
+    algBuffer,
+    Buffer.alloc(4), // PartyUInfo length 0
+    Buffer.alloc(4), // PartyVInfo length 0
     suppPubInfo
   ]);
 
@@ -194,54 +177,186 @@ function trackTime(label, fnOrPromise) {
   } else {
     const res = fnOrPromise();
     const end = process.hrtime.bigint();
-    rTimes[label] = Number(end - start) / 1_000_000;
+    rTimes[label] = Number(end - start) / 1_000_000; // ms
     return res;
   }
+}
+
+// ensures that demo-keys.json exists to assure standalone capabilities
+function ensureDemoKeysExist() {
+  const scratchDir = '.';
+  if (!fs.existsSync(scratchDir)) {
+    fs.mkdirSync(scratchDir, { recursive: true });
+  }
+  const keysPath = `${scratchDir}/demo-keys.json`;
+  if (!fs.existsSync(keysPath)) {
+    console.log(`${COLOR_WARN}⚠️  No active demo-keys.json found. Generating temporary demo trust keys...${COLOR_RESET}`);
+    const walletKey = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
+    const walletPrivateKeyPem = walletKey.privateKey.export({ type: 'sec1', format: 'pem' });
+    const walletPublicKeyPem = walletKey.publicKey.export({ type: 'spki', format: 'pem' });
+
+    const demoKeys = {
+      demoWalletKeys: {
+        privateKey: walletPrivateKeyPem,
+        publicKey: walletPublicKeyPem
+      }
+    };
+    fs.writeFileSync(keysPath, JSON.stringify(demoKeys, null, 2));
+    console.log(`  ✔ Temporary demo-keys.json generated successfully.`);
+  }
+}
+
+// Deferred Credentials Issuance mock server instance
+function startMockDeferredServer() {
+  let pollCount = 0;
+  const server = http.createServer((req, res) => {
+    const url = req.url;
+    res.setHeader('Content-Type', 'application/json');
+
+    if (req.method === 'GET' && url === '/api/issuance/initiate') {
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        sessionId: 'deferred_mock_session_9988',
+        wiaChallenge: 'deferred_mock_wia_challenge_7766'
+      }));
+    } else if (req.method === 'POST' && url === '/api/issuance/nonce') {
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        c_nonce: 'mock_deferred_c_nonce_123',
+        dpop_nonce: 'mock_deferred_dpop_nonce_456'
+      }));
+    } else if (req.method === 'POST' && url === '/api/issuance/token') {
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        access_token: 'mock_deferred_access_token_xyz',
+        token_type: 'DPoP',
+        expires_in: 3600
+      }));
+    } else if (req.method === 'POST' && url === '/api/issuance/credential') {
+      console.log(`   ${COLOR_WARN}[Mock Server] Credential endpoint ha been invoked. Simulating time-intensive background validation activites...${COLOR_RESET}`);
+      console.log(`   ${COLOR_WARN}[Mock Server] Replying with HTTP 202 (Accepted) & transaction_id: tx_req_88192A${COLOR_RESET}`);
+      res.writeHead(202);
+      res.end(JSON.stringify({
+        transaction_id: 'tx_req_88192A',
+        interval: 2 // polling interval: 2s
+      }));
+    } else if (req.method === 'POST' && url === '/api/issuance/deferred') {
+      pollCount++;
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        const parsed = JSON.parse(body || '{}');
+        console.log(`   ${COLOR_CYAN}[Mock Server] Polling at /deferred endpoint (poll attempt #${pollCount}) for transaction_id: ${parsed.transaction_id}${COLOR_RESET}`);
+
+        if (pollCount < 2) {
+          console.log(`   ${COLOR_WARN}[Mock Server] Status still 'pending'... Sending HTTP 202 (Accepted) again.${COLOR_RESET}`);
+          res.writeHead(202);
+          res.end(JSON.stringify({
+            transaction_id: 'tx_req_88192A',
+            interval: 2
+          }));
+        } else {
+          console.log(`   ${COLOR_SUCCESS}[Mock Server] Status 'complete'! Signing Erika Mustermann SD-JWT PID...${COLOR_RESET}`);
+
+          const ISSUER_HEADER_B64 = Buffer.from(JSON.stringify({ alg: "ES256", typ: "dc+sd-jwt" })).toString('base64url');
+          const ISSUER_PAYLOAD_B64 = Buffer.from(JSON.stringify({
+            iss: "https://registry.government.de/pid-issuer",
+            iat: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + 3600,
+            vct: "https://credentials.example.com/identity_credential",
+            _sd_alg: "sha-256",
+            _sd: [
+              "0md4eSFDWig7Gad1CZiRy1I4gcG4fKOmzGNEmOdABiI",
+              "ZmgxyNRwqRHzYCllHNESq_NuKQJ7GvmDtXJA9OhKJbA",
+              "cZ4ca70cY9cYxbIf9x4GUsrcxGWT11xmeF5AA_tDD7M",
+              "QeMxEMSmDeM3jvVxU5b2bMAFASh1IHxKTitvmu7zhbc",
+              "I-TdVkhTXvk1nRhzJrWgwGXp5wjkLxPjISAZ_2sCwG4"
+            ],
+            cnf: { jwk: { kty: "EC", crv: "P-256", x: "TCAER19Zvu3OHF4j4W4vfSVoHIP1ILilDls7vCeGemc", y: "ZxjiWWbZMQGHVWKVQ4hbSIirsVfuecCE6t4jT9F2HZQ" } }
+          })).toString('base64url');
+          const mockIssuerSig = "simulated_government_issuer_signature";
+          const issuerJwt = `${ISSUER_HEADER_B64}.${ISSUER_PAYLOAD_B64}.${mockIssuerSig}`;
+
+          const DISCLOSURE_1 = Buffer.from(JSON.stringify(["2GLC42sKQveCfGfryNRN9w", "given_name", "Erika"])).toString('base64url');
+          const DISCLOSURE_2 = Buffer.from(JSON.stringify(["eluV5Og3gSNII8EYnsxA_A", "family_name", "Mustermann"])).toString('base64url');
+          const DISCLOSURE_3 = Buffer.from(JSON.stringify(["6Ij7tM-a5iVPGboS5tmvVA", "birthdate", "1998-08-12"])).toString('base64url');
+          const DISCLOSURE_4 = Buffer.from(JSON.stringify(["Pc33JM2LchcU_lHggv_ufQ", "is_over_18", true])).toString('base64url');
+          const DISCLOSURE_5 = Buffer.from(JSON.stringify(["Qg_O64zqAxe412a108iroA", "address", { street_address: "Heidestraße 17", locality: "Köln", postal_code: "50667", country: "DE" }])).toString('base64url');
+
+          const finalCredential = `${issuerJwt}~${DISCLOSURE_1}~${DISCLOSURE_2}~${DISCLOSURE_3}~${DISCLOSURE_4}~${DISCLOSURE_5}~`;
+
+          res.writeHead(200);
+          res.end(JSON.stringify({
+            credentials: [{
+              credential: finalCredential
+            }]
+          }));
+        }
+      });
+    } else {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: 'Not Found' }));
+    }
+  });
+
+  server.listen(3100);
+  return server;
 }
 
 async function run() {
   const args = process.argv.slice(2);
   let modeArg = args.find(arg => arg.startsWith('--mode='));
-  let mode = modeArg ? modeArg.split('=')[1] : '3'; // default: mode 3 (E2E)
-
-  let sidArg = args.find(arg => arg.startsWith('--sid='));
-  let externalSid = sidArg ? sidArg.split('=')[1] : null;
+  let mode = modeArg ? modeArg.split('=')[1] : '3'; // Default: Mode 3 (E2E)
 
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
-  console.log(`${COLOR_BOLD}${COLOR_INFO}📱 EUDI WALLET - UNIFIED CRYPTO-TEST HARNESS & CLIENT (JS)${COLOR_RESET}`);
+  console.log(`${COLOR_BOLD}${COLOR_INFO}📱 EUDI WALLET - TEST HARNESS & CLIENT${COLOR_RESET}`);
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
-  console.log(`Selected simulation mode: ${COLOR_BOLD}${COLOR_WARN}Modus ${mode}${COLOR_RESET}`);
-  if (externalSid) {
-    console.log(`Browser session ID coupled: ${COLOR_BOLD}${COLOR_SUCCESS}${externalSid}${COLOR_RESET}`);
-  }
+  console.log(`Selected mode: ${COLOR_BOLD}${COLOR_WARN}Modus ${mode}${COLOR_RESET}`);
 
   if (mode === '1') {
-    console.log(`Description: Unencrypted direct_post presentation (mock claims).`);
-    await runPresentation(false, null, externalSid);
+    console.log(`Descriptipn: Unencrypted direct_post presentation (mock claims)`);
+    await runPresentation(false, null);
   } else if (mode === '2') {
-    console.log(`Description: Encrypted direct_post.jwt presentation (JWE via ECDH-ES).`);
-    await runPresentation(true, null, externalSid);
+    console.log(`Description: Encrypted direct_post.jwt presentation (JWE via ECDH-ES)`);
+    await runPresentation(true, null);
   } else if (mode === '3') {
-    console.log(`Description: end-to-end flow (issuance + JWE presentation).`);
-    const issuedCredential = await runIssuance('dc+sd-jwt', externalSid);
-    if (externalSid && externalSid.startsWith('session_iss_')) {
-      console.log(`🎉 Successful! PID has been issued to browser session.`);
-    } else {
-      await runPresentation(true, issuedCredential, externalSid);
-    }
+    console.log(`Description: Full E2E pipeline (issuance + JWE-encrypted presentation)`);
+    const issuedCredential = await runIssuance('dc+sd-jwt', false);
+    await runPresentation(true, issuedCredential);
   } else if (mode === '4') {
-    console.log(`Description: mdoc presentation (mDL) with binary DeviceResponse CBOR simulation.`);
-    await runMdocPresentation(true, externalSid); // mdoc mit JWE verschlüsselt senden
+    console.log(`Description: mdoc (mDL) presentation with binary DeviceResponse CBOR simulation`);
+    await runMdocPresentation(true); // mdoc mit JWE verschlüsselt senden
   } else if (mode === '5') {
-    console.log(`Description: end-to-end mDL flow (mDL issuance + mdoc presentation).`);
-    const issuedCredential = await runIssuance('mso_mdoc', externalSid);
-    if (externalSid && externalSid.startsWith('session_iss_')) {
-      console.log(`🎉 Successful! mDL has been issued to browser session.`);
-    } else {
-      await runMdocPresentation(true, externalSid, issuedCredential);
+    console.log(`Description: Full mDL E2E pipeline (mDL issuance + mdoc presentation)`);
+    const issuedCredential = await runIssuance('mso_mdoc', false);
+    await runMdocPresentation(true, issuedCredential);
+  } else if (mode === '6') {
+    console.log(`Description: polling scenario for deferred issuance (delayed credential issuance simulation)`);
+
+    ensureDemoKeysExist();
+    const mockServer = startMockDeferredServer();
+    API_BASE = 'http://localhost:3100'; // redirect to internal credential issuer mock server (deferred issuance scenario)
+
+    let issuedCredential;
+    try {
+      issuedCredential = await runIssuance('dc+sd-jwt', true); // executed deferred flow including continuous polling
+    } finally {
+      // destroy mock server instance & free port
+      mockServer.close();
+      console.log(`[Mock Server] Server instance terminated successfully.`);
+    }
+
+    // completing presentation scenario on the verifier instance (port 3000)
+    API_BASE = 'http://localhost:3000'; // redirect to verifier instance
+    try {
+      console.log(`\\n${COLOR_INFO}Attemtping to present the deferred SD-JWT PID to the verifier...${COLOR_RESET}`);
+      await runPresentation(true, issuedCredential);
+    } catch (err) {
+      console.log(`\\n${COLOR_WARN}⚠️  Note: optional presentation could not be completed; server not reachable on port 3000.${COLOR_RESET}`);
+      console.log(`  (Launch 'node eudi-verifier-server_demo.js' in a dedicated terminal)${COLOR_RESET}`);
     }
   } else {
-    console.error(`${COLOR_ERROR}❌ Invalid mode: ${mode}. Supported modes: 1, 2, 3, 4, 5.${COLOR_RESET}`);
+    console.error(`${COLOR_ERROR}❌ Invalid mode: ${mode}. Supported modes: 1-6${COLOR_RESET}`);
     process.exit(1);
   }
 
@@ -250,65 +365,48 @@ async function run() {
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * STEP A: ISSUANCE PROCESS (OpenID4VCI) - mode 3
+ * STEP A: ISSUANCE PROCESS (OpenID4VCI)
  * ─────────────────────────────────────────────────────────────────────────────
  */
-async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
-  console.log(`\n${COLOR_INFO}--- PHASE 1: DYNAMIC PID ISSUANCE (OpenID4VCI) ---${COLOR_RESET}`);
-  console.log(` Format: ${COLOR_BOLD}${format}${COLOR_RESET}`);
+async function runIssuance(format = 'dc+sd-jwt', isDeferredScenario = false) {
+  console.log(`\\n${COLOR_INFO}--- PHASE 1: DYNAMIC PID ISSUANCE (OpenID4VCI) ---${COLOR_RESET}`);
+  console.log(`  Format: ${COLOR_BOLD}${format}${COLOR_RESET}`);
 
+  ensureDemoKeysExist();
   const keysPath = './demo-keys.json';
-  if (!fs.existsSync(keysPath)) {
-    console.error(`${COLOR_ERROR}❌ Error: no active demo keys found!${COLOR_RESET}`);
-    console.error(`Please ensure that the backend service is started via:`);
-    console.error(` node eudi-verifier-server-v9.js`);
-    process.exit(1);
-  }
 
-  console.log(`[VCI 1] Loadinh PKI keys of the wallet provider...`);
+  console.log(`[VCI 1] Loading PKI keys of wallet provider...`);
   const demoKeys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
-  console.log(` ✔ Keys loaded successfully.`);
+  console.log(`  ✔ Keys loaded successfully.`);
 
   console.log(`[VCI 2] Generating ephemeral wallet and device binding keys (P-256)...`);
-  const walletKeyPair = trackTime('Key generation: Wallet (P-256)', () =>
+  const walletKeyPair = trackTime('Key generation: wallet (P-256)', () =>
     crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' })
   );
-  const deviceKeyPair = trackTime('Key generation: Device-Binding (P-256)', () =>
+  const deviceKeyPair = trackTime('Key generation: device binding (P-256)', () =>
     crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' })
   );
   const walletPubKeyJwk = walletKeyPair.publicKey.export({ format: 'jwk' });
   const devicePubKeyJwk = deviceKeyPair.publicKey.export({ format: 'jwk' });
 
-  let sessionId, wiaChallenge;
-  if (externalSid && externalSid.startsWith('session_iss_')) {
-    console.log(`[VCI 3] Using browser issuance session: ${externalSid}`);
-    sessionId = externalSid;
-    const sessionInfo = await trackTime('HTTP: fetching VCI session info',
-      fetch(`${API_BASE}/api/issuance/session-info?sid=${sessionId}`).then(res => res.json())
-    );
-    wiaChallenge = sessionInfo.wiaChallenge;
-    console.log(` ✔ Challenge retrieved successfully: ${wiaChallenge}`);
-  } else {
-    console.log(`[VCI 3] Initiating new issuance session...`);
-    const initResponse = await trackTime('HTTP: initiating VCI session',
-      fetch(`${API_BASE}/api/issuance/initiate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ format: format })
-      }).then(res => res.json())
-    );
-    sessionId = initResponse.sessionId;
-    wiaChallenge = initResponse.wiaChallenge;
-  }
-  console.log(` ✔ Session created. ID: ${sessionId}`);
+  console.log(`[VCI 3] Initiating issuance session...`);
+  const initResponse = await trackTime('HTTP: Initiating VCI Session',
+    fetch(`${API_BASE}/api/issuance/initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format: format })
+    }).then(res => res.json())
+  );
+  const { sessionId, wiaChallenge } = initResponse;
+  console.log(`  ✔ Session initiated. ID: ${sessionId}`);
 
-  console.log(`[VCI 4] Hole frische Einmal-Nonces vom Nonce-Endpoint...`);
-  const nonceResponse = await trackTime('HTTP: Hole VCI Nonces',
+  console.log(`[VCI 4] Fetching one-time nonce from nonce endpoint...`);
+  const nonceResponse = await trackTime('HTTP: Fetching VCI Nonce',
     fetch(`${API_BASE}/api/issuance/nonce`, { method: 'POST' }).then(res => res.json())
   );
 
   console.log(`[VCI 5] Preparing WIA & WIA PoP...`);
-  const wiaToken = trackTime('Crypto: Signing WIA JWT', () => {
+  const wiaToken = trackTime('Krypto: Signiere WIA JWT', () => {
     const header = { alg: 'ES256', typ: 'oauth-client-attestation+jwt' };
     const payload = {
       iss: 'https://wallet-provider.de',
@@ -318,7 +416,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     return signJws(header, payload, demoKeys.demoWalletKeys.privateKey);
   });
 
-  const wiaPop = trackTime('Crypto: Signing WIA PoP JWT', () => {
+  const wiaPop = trackTime('Crypto: Signing WIA-PoP JWT', () => {
     const header = { alg: 'ES256', typ: 'oauth-client-attestation-pop+jwt' };
     const payload = {
       iss: 'https://wallet-provider.de',
@@ -359,12 +457,12 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     }).then(res => res.json())
   );
 
-  console.log(`[VCI 8] Preparing PoP (Device-Binding Proof) vor...`);
-  const credNonces = await trackTime('HTTP: fetching VCI crendential nonces',
+  console.log(`[VCI 8] Generating Device-Binding Proof...`);
+  const credNonces = await trackTime('HTTP: Fetching VCI Credential Nonce',
     fetch(`${API_BASE}/api/issuance/nonce`, { method: 'POST' }).then(res => res.json())
   );
 
-  const credDpopProof = trackTime('Crypto: Signing credential DPoP proof', () => {
+  const credDpopProof = trackTime('Crypto: Signing Credential DPoP Proof', () => {
     const header = { alg: 'ES256', typ: 'dpop+jwt', jwk: walletPubKeyJwk };
     const payload = {
       htm: 'POST',
@@ -374,7 +472,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     return signJws(header, payload, walletKeyPair.privateKey);
   });
 
-  const popProofJwt = trackTime('Crypto: Signing Device-Binding PoP (c_nonce)', () => {
+  const popProofJwt = trackTime('Crypto: Signing Device Binding PoP (c_nonce)', () => {
     const header = { alg: 'ES256', typ: 'openid4vci-proof+jwt', jwk: devicePubKeyJwk };
     const payload = {
       aud: `${API_BASE}/api/issuance`,
@@ -391,7 +489,7 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
     }
   };
 
-  const credResponse = await trackTime('HTTP: fetching PID (/credential)',
+  const credResponseRaw = await trackTime('HTTP: Sending Credential Request (/credential)',
     fetch(`${API_BASE}/api/issuance/credential`, {
       method: 'POST',
       headers: {
@@ -400,11 +498,74 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
         'DPoP': credDpopProof
       },
       body: JSON.stringify(credRequestPayload)
-    }).then(res => res.json())
+    })
   );
 
-  const issuedCredential = credResponse.credentials[0].credential;
-  console.log(`${COLOR_SUCCESS}✅ PID issued successfully! (length: ${issuedCredential.length} chars)${COLOR_RESET}`);
+  let issuedCredential;
+
+  // Deferred Issuance Scenario (=> HTTP 202)
+  if (credResponseRaw.status === 202) {
+    const deferredInit = await credResponseRaw.json();
+    const transactionId = deferredInit.transaction_id;
+    let interval = deferredInit.interval || 2;
+
+    console.log(`\\n${COLOR_WARN}⏳ [DEFERRED] HTTP 202 (Accepted). Issuance is delayed!${COLOR_RESET}`);
+    console.log(`  ➡ transaction_id: ${COLOR_BOLD}${transactionId}${COLOR_RESET}`);
+    console.log(`  ➡ polling interval: ${interval} seconds`);
+
+    let polling = true;
+    let pollCount = 0;
+
+    while (polling) {
+      console.log(`\\n[VCI 9.1] Waiting ${interval}s before next poll...`);
+      await new Promise(resolve => setTimeout(resolve, interval * 1000));
+      pollCount++;
+
+      console.log(`[VCI 9.2] Sending polling request #${pollCount} to deferred endpoint (/api/issuance/deferred)...`);
+
+      // preparing DPoP proof for deferrend endpoint
+      const deferredDpopProof = trackTime(`Crypto: Signing Deferred DPoP Proof #${pollCount}`, () => {
+        const header = { alg: 'ES256', typ: 'dpop+jwt', jwk: walletPubKeyJwk };
+        const payload = {
+          htm: 'POST',
+          htu: `${API_BASE}/api/issuance/deferred`,
+          nonce: credNonces.dpop_nonce
+        };
+        return signJws(header, payload, walletKeyPair.privateKey);
+      });
+
+      const pollResponseRaw = await trackTime(`HTTP: Deferred Poll #${pollCount}`,
+        fetch(`${API_BASE}/api/issuance/deferred`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `DPoP ${tokenResponse.access_token}`,
+            'DPoP': deferredDpopProof
+          },
+          body: JSON.stringify({ transaction_id: transactionId })
+        })
+      );
+
+      if (pollResponseRaw.status === 202) {
+        const pollData = await pollResponseRaw.json();
+        console.log(`   ${COLOR_WARN}⏳ [DEFERRED] Status remains 'pending'... (waiting for release)${COLOR_RESET}`);
+        interval = pollData.interval || 2;
+      } else if (pollResponseRaw.status === 200) {
+        const pollData = await pollResponseRaw.json();
+        issuedCredential = pollData.credentials[0].credential;
+        console.log(`   ${COLOR_SUCCESS}✔ [DEFERRED] Credential released successfully!${COLOR_RESET}`);
+        polling = false;
+      } else {
+        const errText = await pollResponseRaw.text();
+        throw new Error(`Error while polling: HTTP ${pollResponseRaw.status} - ${errText}`);
+      }
+    }
+  } else {
+    const credResponse = await credResponseRaw.json();
+    issuedCredential = credResponse.credentials[0].credential;
+  }
+
+  console.log(`${COLOR_SUCCESS}✅ Credential issued successfully! (length: ${issuedCredential.length} chars)${COLOR_RESET}`);
 
   return {
     credential: issuedCredential,
@@ -415,30 +576,22 @@ async function runIssuance(format = 'dc+sd-jwt', externalSid = null) {
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * STEP B: PRESENTATION (OpenID4VP) - modes 1, 2 and 3
+ * STEP B: PRESENTATION PROCESS (OpenID4VP)
  * ─────────────────────────────────────────────────────────────────────────────
  */
-async function runPresentation(useEncryption, issuedData, externalSid = null) {
-  console.log(`\n${COLOR_INFO}--- PHASE 2: PID PRESENTATION (OpenID4VP) ---${COLOR_RESET}`);
+async function runPresentation(useEncryption, issuedData) {
+  console.log(`\\n${COLOR_INFO}--- PHASE 2: PID PRESENTATION (OpenID4VP) ---${COLOR_RESET}`);
 
-  let sessionId, requestUri;
-  if (externalSid) {
-    console.log(`[VP 1] Using browser session ID: ${externalSid}`);
-    sessionId = externalSid;
-    requestUri = `${API_BASE}/api/presentation/request-jwt?sid=${sessionId}`;
-  } else {
-    console.log(`[VP 1] Initating new presentation session at the verifier...`);
-    const initResponse = await trackTime('HTTP: Initiating VP session',
-      fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
-    );
-    sessionId = initResponse.sessionId;
-    const qrCodeUrl = initResponse.qrCodeUrl;
-    console.log(` ✔ Session created successfully. ID: ${sessionId}`);
-    requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
-  }
+  console.log(`[VP 1] Initiating presentation session at the verifier...`);
+  const initResponse = await trackTime('HTTP: Initiating VP Session',
+    fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
+  );
+  const { sessionId, qrCodeUrl } = initResponse;
+  console.log(`  ✔ Session initiated successfully. ID: ${sessionId}`);
 
-  console.log(`[VP 2] fetching request object (JAR) via request_uri...`);
-  const signedJar = await trackTime('HTTP: Fetching JAR request',
+  console.log(`[VP 2] Retrieving JAR via request_uri...`);
+  const requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
+  const signedJar = await trackTime('HTTP: Hole JAR Request',
     fetch(requestUri).then(res => res.text())
   );
 
@@ -447,15 +600,15 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
   const nonce = jarPayload.nonce;
   const rpKeyJwk = jarPayload.client_metadata?.jwks?.keys[0];
 
-  console.log(` ✔ JAR retrieved and demasked successfully.`);
-  console.log(` ✔ Extracted presentation nonce: ${nonce}`);
+  console.log(`  ✔ JAR retrieved successfully.`);
+  console.log(`  ✔ Presentation nonce: ${nonce}`);
 
   console.log(`[VP 3] Preparing presentation payload (SD-JWT VC + Key Binding)...`);
   let finalSdJwt;
   let presentationDevicePrivateKey;
 
   if (issuedData) {
-    console.log(` 👉 Using dynamically generated PID.`);
+    console.log(`  👉 Using dynamically generated PID.`);
     const issuedCredential = issuedData.credential;
     presentationDevicePrivateKey = issuedData.devicePrivateKey;
 
@@ -471,13 +624,13 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
       sd_hash: "Dy-RYwZfaaoC3inJbLslgPvMp09bH-clYP_3qbRqtW4"
     };
 
-    const kbJwt = trackTime('Crypto: signing key binding (KB-JWT)', () =>
+    const kbJwt = trackTime('Crypto: Signing Key-Binding (KB-JWT)', () =>
       signJws(kbHeader, kbPayload, presentationDevicePrivateKey)
     );
 
     finalSdJwt = `${issuerJwt}~${disclosures.join('~')}~${kbJwt}`;
   } else {
-    console.log(` 👉 Using statically signed mock PID for Erika Mustermann.`);
+    console.log(`  👉 Using static mock PID (Erika Mustermann).`);
     const mockDeviceKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
     presentationDevicePrivateKey = mockDeviceKeyPair.privateKey;
 
@@ -536,7 +689,7 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
   let postContentType = 'application/x-www-form-urlencoded';
 
   if (useEncryption && rpKeyJwk) {
-    console.log(`[VP 4] Encrypting presentation via JWE (ECDH-ES + AES-128-GCM)...`);
+    console.log(`[VP 4] Encrypted presentation via JWE (ECDH-ES + AES-128-GCM)...`);
 
     const walletEncKeyPair = trackTime('Key generation: ephemeral VP key (P-256)', () =>
       crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' })
@@ -544,18 +697,18 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
     const walletEncPubKeyJwk = walletEncKeyPair.publicKey.export({ format: 'jwk' });
 
     const rpPublicKey = crypto.createPublicKey({ key: rpKeyJwk, format: 'jwk' });
-    const sharedSecret = trackTime('Crypto: ECDH key agreement', () =>
+    const sharedSecret = trackTime('Crypto: ECDH Key Agreement', () =>
       crypto.diffieHellman({
         privateKey: walletEncKeyPair.privateKey,
         publicKey: rpPublicKey
       })
     );
 
-    const cek = trackTime('Crypto: Concat KDF key derivation', () =>
+    const cek = trackTime('Crypto: Concat KDF Key Derivation', () =>
       deriveConcatKDF(sharedSecret, 16, 'A128GCM')
     );
 
-    const jweString = trackTime('Crypto: AES-128-GCM JWE encryption', () => {
+    const jweString = trackTime('Crypto: AES-128-GCM JWE Encryption', () => {
       const jweHeader = {
         alg: 'ECDH-ES',
         enc: 'A128GCM',
@@ -576,10 +729,10 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
       return `${headerB64}..${iv.toString('base64url')}.${ciphertext.toString('base64url')}.${tag.toString('base64url')}`;
     });
 
-    console.log(` ✔ JWE encryption completed. JWE: ${jweString.substring(0, 50)}...`);
+    console.log(`  ✔ JWE encryption completed. JWE (shortened): ${jweString.substring(0, 50)}...`);
     postBodyString = `response=${encodeURIComponent(jweString)}&state=${encodeURIComponent(sessionId)}`;
   } else {
-    console.log(`[VP 4] Sending unencrypted payload (fallback: direct_post)...`);
+    console.log(`[VP 4] Sending unenecrypted payload (direct_post fallback)...`);
     postBodyString = `vp_token=${encodeURIComponent(JSON.stringify(cleartextPayload.vp_token))}&wia_token=${encodeURIComponent(cleartextPayload.wia_token)}&state=${encodeURIComponent(sessionId)}`;
   }
 
@@ -591,48 +744,40 @@ async function runPresentation(useEncryption, issuedData, externalSid = null) {
       body: postBodyString
     }).then(res => res.json())
   );
-  console.log(` ✔ Server returns redirect URI: ${callbackResponse.redirect_uri}`);
+  console.log(`  ✔ Server responds with redirect URI: ${callbackResponse.redirect_uri}`);
 
-  console.log(`[VP 6] Fetching final verification status from server...`);
+  console.log(`[VP 6] Querying final verification status from server...`);
   const statusResponse = await trackTime('HTTP: Polling Onboarding Status',
     fetch(`${API_BASE}/api/presentation/status?sid=${sessionId}`).then(res => res.json())
   );
 
-  console.log(`\n${COLOR_CYAN}================================================================${COLOR_RESET}`);
+  console.log(`\\n${COLOR_CYAN}================================================================${COLOR_RESET}`);
   console.log(`${COLOR_BOLD}${COLOR_SUCCESS}🎯 STATUS OF PRESENTATION VERIFICATION: ${statusResponse.status}${COLOR_RESET}`);
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
   console.log(`Transport encryption (JWE): ${COLOR_BOLD}${statusResponse.isEncrypted ? 'YES 🔒 (direct_post.jwt)' : 'NO ⚠️ (direct_post)'}${COLOR_RESET}`);
-  console.log(`Transmitted claims:`);
+  console.log(`Übertragene Claims:`);
   console.log(JSON.stringify(statusResponse.claims, null, 2));
-  console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}\n`);
+  console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}\\n`);
 }
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * STEP C: MDOC PRESENTATION (MODE 4)
+ * SCHRITT C: MDOC PRESENTATION PROCESS (MODE 4 / MODE 5)
  * ─────────────────────────────────────────────────────────────────────────────
  */
-async function runMdocPresentation(useEncryption, externalSid = null, issuedData = null) {
-  console.log(`\n${COLOR_INFO}--- PID PRESENTATION IN ISO MDOC FORMAT (mDL) ---${COLOR_RESET}`);
+async function runMdocPresentation(useEncryption, issuedData) {
+  console.log(`\\n${COLOR_INFO}--- PID PRESENTATION IN ISO MDOC FORMAT (mDL) ---${COLOR_RESET}`);
 
-  let sessionId, requestUri;
-  if (externalSid) {
-    console.log(`[mdoc 1] Using browser session ID: ${externalSid}`);
-    sessionId = externalSid;
-    requestUri = `${API_BASE}/api/presentation/request-jwt?sid=${sessionId}`;
-  } else {
-    console.log(`[mdoc 1] Initiating new presentation session at the verifier...`);
-    const initResponse = await trackTime('HTTP: Initiating mdoc session',
-      fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
-    );
-    sessionId = initResponse.sessionId;
-    const qrCodeUrl = initResponse.qrCodeUrl;
-    console.log(` ✔ Session created successfully. ID: ${sessionId}`);
-    requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
-  }
+  console.log(`[mdoc 1] Initiating presentation session at the verifier...`);
+  const initResponse = await trackTime('HTTP: Initiating mdoc Session',
+    fetch(`${API_BASE}/api/presentation/initiate`).then(res => res.json())
+  );
+  const { sessionId, qrCodeUrl } = initResponse;
+  console.log(`  ✔ Session initiated successfully. ID: ${sessionId}`);
 
-  console.log(`[mdoc 2] Fetching request object (JAR) via request_uri...`);
-  const signedJar = await trackTime('HTTP: Fetching JAR request',
+  console.log(`[mdoc 2] Fetching JAR via request_uri...`);
+  const requestUri = new URL(qrCodeUrl).searchParams.get('request_uri');
+  const signedJar = await trackTime('HTTP: Fetching JAR Request',
     fetch(requestUri).then(res => res.text())
   );
 
@@ -641,17 +786,16 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
   const nonce = jarPayload.nonce;
   const rpKeyJwk = jarPayload.client_metadata?.jwks?.keys[0];
 
-  console.log(` ✔ Extracted presentation nonce: ${nonce}`);
+  console.log(`  ✔ Extracted presentation nonce: ${nonce}`);
 
-  console.log(`[mdoc 3] Generating SesseionTranscript (ISO 18013-5)...`);
+  console.log(`[mdoc 3] Generating SessionTranscript (ISO 18013-5)...`);
 
-  // 1. Building HandoverInfo structure aufbauen + CBOR encoding
   const rpClientId = "x509_san_dns:client.example.org";
   const responseUri = `${API_BASE}/api/presentation/callback`;
 
   let jwkThumbprint = null;
   if (useEncryption && rpKeyJwk) {
-    jwkThumbprint = trackTime('Crypto: Calculating JWK thumbprint (RFC 7638)', () => getJwkThumbprint(rpKeyJwk));
+    jwkThumbprint = trackTime('Crypto: Calculating JWK Thumbprint (RFC 7638)', () => getJwkThumbprint(rpKeyJwk));
   }
 
   const handoverInfo = [
@@ -675,11 +819,10 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
     handover
   ];
 
-  const sessionTranscriptCbor = trackTime('CBOR: encoding SessionTranscript', () => encodeCBOR(sessionTranscript));
-  console.log(` ✔ SessionTranscript CBOR encoding complete (${sessionTranscriptCbor.length} bytes).`);
+  const sessionTranscriptCbor = trackTime('CBOR: Encoding SessionTranscript', () => encodeCBOR(sessionTranscript));
+  console.log(`  ✔ SessionTranscript CBOR generated (${sessionTranscriptCbor.length} bytes).`);
 
-  // 2. generating Erika Mustermann mdoc DeviceResponse CBOR document
-  console.log(`[mdoc 4] Genrating mdoc document and signing device binding...`);
+  console.log(`[mdoc 4] Generating mdoc document and signing device binding...`);
 
   const mdNameSpace = {
     "org.iso.18013.5.1": {
@@ -726,8 +869,8 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
   const deviceResponseCbor = encodeCBOR(deviceResponse);
   const base64DeviceResponse = base64url(deviceResponseCbor);
 
-  // building callback payload
   const finalMdlBase64 = issuedData ? issuedData.credential : base64DeviceResponse;
+
   const cleartextPayload = {
     vp_token: {
       my_mdl_credential: [finalMdlBase64]
@@ -758,7 +901,7 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
 
     const cek = deriveConcatKDF(sharedSecret, 16, 'A128GCM');
 
-    const jweString = trackTime('Crypto: AES-128-GCM JWE encryption', () => {
+    const jweString = trackTime('Crypto: AES-128-GCM JWE Encryption', () => {
       const jweHeader = {
         alg: 'ECDH-ES',
         enc: 'A128GCM',
@@ -785,43 +928,43 @@ async function runMdocPresentation(useEncryption, externalSid = null, issuedData
   }
 
   console.log(`[mdoc 6] Transmitting direct_post.jwt callback to RP server...`);
-  const callbackResponse = await trackTime('HTTP: direct_post Callback übermitteln',
+  const callbackResponse = await trackTime('HTTP: direct_post callback transmission',
     fetch(`${API_BASE}/api/presentation/callback`, {
       method: 'POST',
       headers: { 'Content-Type': postContentType },
       body: postBodyString
     }).then(res => res.json())
   );
-  console.log(` ✔ Server returns redirect URI: ${callbackResponse.redirect_uri}`);
+  console.log(`  ✔ Server respons with redirect URI: ${callbackResponse.redirect_uri}`);
 
-  console.log(`[mdoc 7] Requesting final verification status from server...`);
+  console.log(`[mdoc 7] Querying final verification status from server...`);
   const statusResponse = await trackTime('HTTP: Polling Onboarding Status',
     fetch(`${API_BASE}/api/presentation/status?sid=${sessionId}`).then(res => res.json())
   );
 
-  console.log(`\n${COLOR_CYAN}================================================================${COLOR_RESET}`);
+  console.log(`\\n${COLOR_CYAN}================================================================${COLOR_RESET}`);
   console.log(`${COLOR_BOLD}${COLOR_SUCCESS}🎯 STATUS OF PRESENTATION VERIFICATION: ${statusResponse.status}${COLOR_RESET}`);
   console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}`);
-  console.log(`Presented format:             ${COLOR_BOLD}ISO mdoc (mDL)${COLOR_RESET}`);
-  console.log(`Transport encryption (JWE):  ${COLOR_BOLD}${statusResponse.isEncrypted ? 'YES 🔒 (direct_post.jwt)' : 'NO ⚠️ (direct_post)'}${COLOR_RESET}`);
+  console.log(`Presentation format:             ${COLOR_BOLD}ISO mdoc (mDL)${COLOR_RESET}`);
+  console.log(`Transport encryption (JWE):  ${COLOR_BOLD}${statusResponse.isEncrypted ? 'YES 🔒 (direct_post.jwt)' : 'NO ⚠️ (Klartext direct_post)'}${COLOR_RESET}`);
   console.log(`Transmitted mDL claims:`);
   console.log(JSON.stringify(statusResponse.claims, null, 2));
-  console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}\n`);
+  console.log(`${COLOR_CYAN}================================================================${COLOR_RESET}\\n`);
 }
 
 /**
  * ─────────────────────────────────────────────────────────────────────────────
- * PRINT STATS TABLE (performance benchamrking)
+ * PRINT STATS TABLE
  * ─────────────────────────────────────────────────────────────────────────────
  */
 function printStatsTable() {
-  console.log(`${COLOR_BOLD}${COLOR_CYAN}📊 CONSOLIDATED TRANSACTION RUNTIME STATISTIC${COLOR_RESET}`);
+  console.log(`${COLOR_BOLD}${COLOR_CYAN}📊 CONSOLIDATED RUNTIME STATS OF THE TRANSACTION${COLOR_RESET}`);
 
   const col1Width = 55;
   const col2Width = 14;
 
   console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
-  console.log(`| ${COLOR_BOLD}${'Action / Step'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${'Laufzeit'.padEnd(col2Width)}${COLOR_RESET} |`);
+  console.log(`| ${COLOR_BOLD}${'Action / cryptographic step'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${'Runtime'.padEnd(col2Width)}${COLOR_RESET} |`);
   console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
 
   let totalTime = 0;
@@ -836,11 +979,11 @@ function printStatsTable() {
   console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
   const totalTimeStr = totalTime.toFixed(2) + " ms";
   const totalPadding = ' '.repeat(Math.max(0, col2Width - totalTimeStr.length));
-  console.log(`| ${COLOR_BOLD}${'TOTAL RUNTIME (simulator)'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${COLOR_SUCCESS}${totalTimeStr}${COLOR_RESET}${totalPadding} |`);
+  console.log(`| ${COLOR_BOLD}${'TOTAL RUNTIME (Simulator)'.padEnd(col1Width)}${COLOR_RESET} | ${COLOR_BOLD}${COLOR_SUCCESS}${totalTimeStr}${COLOR_RESET}${totalPadding} |`);
   console.log(`+-${'-'.repeat(col1Width)}-+-${'-'.repeat(col2Width)}-+`);
 }
 
 run().catch(err => {
-  console.error(`\n${COLOR_ERROR}❌ Fatal error during test execution:${COLOR_RESET}`, err);
+  console.error(`\\n${COLOR_ERROR}❌ Fatal error during test execution:${COLOR_RESET}`, err);
   process.exit(1);
 });
