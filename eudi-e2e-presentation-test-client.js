@@ -1,12 +1,12 @@
 /**
  * EUDI Wallet - End-to-End Presentation Test Client (OpenID4VP / HAIP / direct_post.jwt)
  * 
- * Simuliert den vollständigen Ablauf einer Wallet-Präsentation:
- * 1. Empfang / Abruf des JAR-Request-Objects (JAR JWT)
- * 2. Erstellung eines SD-JWT VCs mit Disclosures und Key Binding JWT (KB-JWT)
- * 3. Anwendungsschicht-Verschlüsselung der Antwort via JWE (ECDH-ES + Concat KDF + AES-128-GCM)
- * 4. Übermittlung per direct_post.jwt an den Verifier Callback
- * 5. Überprüfung der 4-Säulen-Validierung und der empfangenen redirect_uri
+ * Simulates the full sequence of a wallet presentation:
+ * 1. Requesting / retrieving the JAR request object (JWT)
+ * 2. Generating the SD.JWT VC with disclosures and KB-JWT
+ * 3. Encryption of the response via JWE (ECDH-ES + Concat KDF + AES-128-GCM)
+ * 4. Transmission of response via direct_post.jwt to the verifier callback
+ * 5. Security validation + redirect_uri validation
  */
 
 const crypto = require('crypto');
@@ -19,7 +19,7 @@ function base64url(input) {
 }
 
 /**
- * Single-Step Concat KDF (NIST SP 800-56A / RFC 7518 Section 4.6)
+ * Single Step Concat KDF (NIST SP 800-56A / RFC 7518 Section 4.6)
  */
 function deriveConcatKDF(sharedSecret, keyLengthBytes, algorithmId, apu, apv) {
   const keyLengthBits = keyLengthBytes * 8;
@@ -98,7 +98,7 @@ async function runE2ETest() {
   console.log('  EUDI WALLET - END-TO-END PRESENTATION (OpenID4VP) TEST CLIENT  ');
   console.log('================================================================\n');
 
-  console.log('[Schritt 1] Initiierung der Präsentationssitzung...');
+  console.log('[Step 1] Initiation of the presentation session...');
   const sessionId = 'session_e2e_' + crypto.randomBytes(8).toString('hex');
   const nonce = 'nonce_' + crypto.randomBytes(12).toString('hex');
 
@@ -114,7 +114,7 @@ async function runE2ETest() {
   console.log('  [PASS] Nonce      :', nonce);
   console.log('  [PASS] Client ID  :', clientId, '\n');
 
-  console.log('[Schritt 2] Erstellung des Verifiable Credentials & Inhabernachweises (KB-JWT)...');
+  console.log('[Step 2] Creating the VC + KB-JWT...');
 
   const holderKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   const holderPublicJwk = holderKeyPair.publicKey.export({ format: 'jwk' });
@@ -155,11 +155,11 @@ async function runE2ETest() {
 
   const fullSdJwtPresentation = sdJwtWithoutKb + kbJwt;
 
-  console.log('  [PASS] SD-JWT VC erfolgreich zusammengestellt (3 Disclosures)');
-  console.log('  [PASS] Key Binding JWT (KB-JWT) signiert mit Holder Key');
-  console.log('  [PASS] Berechneter sd_hash:', sdHash, '\n');
+  console.log('  [PASS] SD-JWT VC composition (3 disclosures)');
+  console.log('  [PASS] Key Binding JWT (KB-JWT) signed with holder key');
+  console.log('  [PASS] Calculated sd_hash:', sdHash, '\n');
 
-  console.log('[Schritt 3] Anwendungsschicht-Verschlüsselung der Antwort (JWE direct_post.jwt)...');
+  console.log('[Step 3] JWE direct_post.jwt encryption...');
 
   const credKey = ['pid', 'sd-jwt'].join('-');
   const vpObj = {}; vpObj[credKey] = fullSdJwtPresentation;
@@ -172,10 +172,10 @@ async function runE2ETest() {
   };
 
   const jweCompact = encryptJweDirectPost(responsePayload, verifierPublicJwk);
-  console.log('  [PASS] JWE Compact String generiert (Länge:', jweCompact.length, 'Zeichen)');
+  console.log('  [PASS] JWE Compact String generated (length:', jweCompact.length, 'chars)');
   console.log('  [PASS] JWE Header: alg=ECDH-ES, enc=A128GCM, kid=' + verifierPublicJwk.kid + '\n');
 
-  console.log('[Schritt 4] Verifizierung der Entschlüsselung & 4-Säulen-Validierung im Verifier Backend...');
+  console.log('[Step 4] Verification of decryption...');
 
   const jweParts = jweCompact.split('.');
   const recHeader = JSON.parse(Buffer.from(jweParts[0], 'base64url').toString('utf8'));
@@ -190,9 +190,9 @@ async function runE2ETest() {
   const decryptedBuf = Buffer.concat([decipher.update(Buffer.from(jweParts[3], 'base64url')), decipher.final()]);
   const decryptedData = JSON.parse(decryptedBuf.toString('utf8'));
 
-  console.log('  [PASS] Entschlüsselung im Verifier Backend erfolgreich!');
-  console.log('  [PASS] Entschlüsselte Nonce:', decryptedData.nonce, '(Matched)');
-  console.log('  [PASS] Entschlüsselte Audience:', decryptedData.aud, '(Matched)');
+  console.log('  [PASS] Decryption in verifier backend successful!');
+  console.log('  [PASS] Decrypted Nonce:', decryptedData.nonce, '(Matched)');
+  console.log('  [PASS] Decrypted Audience:', decryptedData.aud, '(Matched)');
 
   const recSdJwt = decryptedData.vp_token[credKey];
   const recParts = recSdJwt.split('~');
@@ -204,18 +204,18 @@ async function runE2ETest() {
   const recKbPayload = JSON.parse(Buffer.from(recKbParts[1], 'base64url').toString('utf8'));
 
   if (recKbPayload[sdHashKey] === recSdHash) {
-    console.log('  [PASS] Säule 2 (Device Binding): sd_hash im KB-JWT stimmt exakt überein!');
+    console.log('  [PASS] Device Binding: sd_hash in KB-JWT matches!');
   } else {
-    console.error('  [FAIL] sd_hash Mismatch!');
+    console.error('  [FAIL] sd_hash mismatch!');
   }
 
   const kbVerifierInput = recKbParts[0] + '.' + recKbParts[1];
   const isHolderSigValid = crypto.verify('SHA256', Buffer.from(kbVerifierInput), { key: holderKeyPair.publicKey, dsaEncoding: encOpt }, Buffer.from(recKbParts[2], 'base64url'));
 
   if (isHolderSigValid) {
-    console.log('  [PASS] Säule 2 (Device Binding): Holder-Signatur am KB-JWT ist mathematisch GÜLTIG!');
+    console.log('  [PASS] Device Binding: holder signature in KB-JWT is VALID!');
   } else {
-    console.error('  [FAIL] Holder-Signatur UNGÜLTIG!');
+    console.error('  [FAIL] Holder signature INVALID!');
   }
 
   const responseCode = crypto.randomBytes(16).toString('hex');
@@ -224,7 +224,7 @@ async function runE2ETest() {
   console.log('\n  [INFO] Verifier Redirect URI: ' + redirectUri);
 
   console.log('\n================================================================');
-  console.log('  END-TO-END PRÄSENTATIONSTEST ERFOLGREICH ABGESCHLOSSEN (PASS)');
+  console.log('  END-TO-END PRESENTATION TEST COMPLETED (PASS)');
   console.log('================================================================');
 }
 
