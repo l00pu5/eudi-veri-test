@@ -5,7 +5,8 @@
   "main": "eudi-verifier-helper-v2.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon eudi-verifier-server.js"
+    "dev": "nodemon eudi-verifier-server_demo2.js",
+    "devtest": "nodemon eudi-verifier-server_test.js"
   },
   "keywords": [],
   "author": "",
