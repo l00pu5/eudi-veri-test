@@ -241,6 +241,20 @@ node eudi-test-harness_demo.js --mode=3 --url="openid4vp://..."
 
 Execute the following steps in separate terminal windows to demonstrate the pipeline locally:
 
+### Step 0: prep work
+
+Ensure that the certificates & key files are copied to the correct folders within the project's folder structure:
+
+```
+project_folder/ 
+├── certs/ 
+│ ├── access_certificate.pem        <-- Access Certificate (PEM) 
+│ ├── access_certificate_key.pem    <-- Private Key (PEM) 
+│ └── registration_certificate.jwt  <-- Registration Certificate (JWT) 
+├── eudi-verifier-server_test.js 
+└── package.json
+```
+
 ### Step 1: launching the sandbox server
 Launch the Express backend on port `3000`. The server will automatically generate the demo trust keys upon starting and will save them at `./demo-keys.json`:
 ```bash
