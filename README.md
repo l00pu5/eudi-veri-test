@@ -22,7 +22,7 @@ The project consists of the following modules and components:
   * checks incoming issuance requests via the **credential and token endpoints** - validates the **Wallet Instance Attestation (WIA)**, the key **Proof of Possession (PoP)** of the user via `c_nonce` and enforces **DPoP Sender Constrainting**.
   * generates an actual **SD-JWT-based PID for Erika Mustermann** including randomized salting for selective disclosures.
 
-3. **`eudi-verifier-server_demo_.js` (REST API server)**
+3. **`eudi-verifier-server_test.js` (REST API server)**
   * provided **Verifier (Relying Party)** and **Issuer (PID Provider)** functionality
   * exports transient keys for simulating the trust store (`demo-keys.json`) to allow the simulation script to generate a cryptographically correct WIA signature
   * saves the verified document (`SD-JWT VC` or `ISO mdoc`) as well as the cryptographic `integrityLog` + `rawSdList` within the session and delivers them to the status endpoint
@@ -210,7 +210,7 @@ In order for the smartphone wallet app to accept the self-signed developer certi
 * **ngrok**
 
 ### Installing dependencies
-Clone the repo and install the depencies as follows (will pull dependencies from `package.json`):
+Clone the repo and install the depencies as follows (will pull dependencies from `package.json` automatically):
 ```bash
 npm install
 ```
@@ -219,6 +219,7 @@ npm install
 
 #### 🌐 IMPORTANT: invoke web UI via localhost
 Open `index.html` via `http://localhost:3000` or `http://localhost:3000/index.html`, otherwise the relative URL paths of the fetch requests will trigger CORS errors.
+Do *not* open `index.html` from the local file system.
 
 #### 💡 Session coupling between browser (index.html) and the simulator
 If you would like to track the progress and view the results in the web UI, you'll need to ensure that the test script doesn't generate its own session, but instead uses the **existing session** of the browser.
@@ -233,7 +234,7 @@ Invocation:
 node eudi-test-harness_demo.js --mode=3 --sid="SESSION_ID"
 
 # via full URL
-node eudi-test-harness_demo_.js --mode=3 --url="openid4vp://..."
+node eudi-test-harness_demo.js --mode=3 --url="openid4vp://..."
 ```
 
 ## 🚀 Usage / end-to-end demonstration
@@ -243,7 +244,7 @@ Execute the following steps in separate terminal windows to demonstrate the pipe
 ### Step 1: launching the sandbox server
 Launch the Express backend on port `3000`. The server will automatically generate the demo trust keys upon starting and will save them at `./demo-keys.json`:
 ```bash
-node eudi-verifier-server_demo.js
+node eudi-verifier-server_test.js
 ```
 *Output*: Server is running on `http://localhost:3000`, awaiting incoming connections.
 
@@ -263,7 +264,7 @@ This will simulate the entire chain of events for PID data:
 1. The wallet will obtain a signed PID from the issuer (`/api/issuance`) that is bound to a local hardware device key.
 2. The wallet will present this PID via JWE to the asynchronous back channel of the RP (`/api/presentation`.
 ```bash
-node eudi-test-harness_demo_.js --mode=3
+node eudi-test-harness_demo.js --mode=3
 ```
 
 #### Option A2: full eIDAS data flow for mDL (dynamic mdoc/CBOR issuance + mdoc presentation) [mode 5]
@@ -271,7 +272,7 @@ This will simulate the **end-to-end flow for the mDL issuance + presentation**:
 1. The wallet will obtain a dynamically generated mDoc certificate (CBOR-encoded) with the configured data from the issuer endpoint.
 2. The wallet will present the mDL JWE-encrypted and SessionTranscript-bound on the direct_post back channel.
 ```bash
-node eudi-test-harness_demo_.js --mode=5
+node eudi-test-harness_demo.js --mode=5
 ```
 
 #### Option B: mdoc / MDL presentation (CBOR / SessionTranscript simulation) [mode 4]
@@ -280,19 +281,19 @@ This mode demonstrates the mDL integration:
 2. The client will pack the mDL into a binary `DeviceResponse` CBOR document, will encrypt it (ECDH-ES + AES-GCM) and will send it via `direct_post.jwt` to the server.
 3. The server will decrypt the data, parse the CBOR structure and extract the mDL claims for the audit log.
 ```bash
-node eudi-test-harness_demo_.js --mode=4
+node eudi-test-harness_demo.js --mode=4
 ```
 
 #### Option C: encrypted presentation (JWE via ECDH-ES) [mode 2]
 Simulates the onboarding scenario where the wallet is already in possession of a PID and is presenting it end-to-end encrypted to the RP:
 ```bash
-node eudi-test-harness_demo_.js --mode=2
+node eudi-test-harness_demo.js --mode=2
 ```
 
 #### Option D: unencrypted quick onboarding [mode 1]
 Simulates a simple unencrypted credential presentation. For testing purposes to see if the interfaces are interaction with each other accordingly:
 ```bash
-node eudi-test-harness_demo_.js --mode=1
+node eudi-test-harness_demo.js --mode=1
 ```
 
 *Result*: the server will verifiy the cryptographic signatures and PoP(s). After execution, the script will provide a **runtime statistic** in the terminal.
