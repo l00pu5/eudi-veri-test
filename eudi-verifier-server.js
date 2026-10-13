@@ -635,7 +635,7 @@ app.post('/api/presentation/callback', async (req, res) => {
     const verificationResult = await verifier.verifyPresentation(parsedVpToken, wia_token);
 
     if (verificationResult.success) {
-      console.log(`[RP] ✅ Verification successful; ${verificationResult.format} processed for session: ${state}.`);
+      console.log(`[RP] ✅ Verification successful; ${verificationResult.format} processed for session: ${state}`);
 
       const responseCode = crypto.randomBytes(16).toString('hex');
       tx.status = 'SUCCESS';
@@ -705,7 +705,7 @@ app.get('/api/presentation/status', (req, res) => {
 });
 
 // =============================================================================
-// PART 2: ENDPOINTS FOR AUSSTELLUNG & ATTESTATION (OPENID4VCI)
+// PART 2: ENDPOINTS FOR ISSUANCE & ATTESTATION (OPENID4VCI)
 // =============================================================================
 
 app.get('/api/issuance/session-info', (req, res) => {
@@ -845,7 +845,7 @@ app.get(['/api/issuance/.well-known/openid-credential-issuer', '/.well-known/ope
 });
 
 app.post('/api/issuance/nonce', (req, res) => {
-  console.log('[Issuer Server] Nonce Request erhalten.');
+  console.log('[Issuer Server] Nonce Request erhalten');
   const nonces = pidIssuer.generateNonceResponse();
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
