@@ -12,7 +12,7 @@ This repository aims to provide a full local **EUDI Wallet Sandbox**. It provide
 
 The project consists of the following modules and components:
 
-1. **`eudi-verifier-helper_demo.js` (presentation verification)**
+1. **`eudi-verifier-helper.js` (presentation verification)**
   * Verifies incoming presentations (SD-JWT VC or binary mdoc documents) in a tamper-proof fashion and provides a detailed integrity and hash matching log (`integrityLog`).
   * Is based solely on the  **native Node.js `crypto` module** (no additional npm dependencies).
   * Contains a mock **Erika Mustermann identity payload** for local validation simulation.
@@ -22,7 +22,7 @@ The project consists of the following modules and components:
   * checks incoming issuance requests via the **credential and token endpoints** - validates the **Wallet Instance Attestation (WIA)**, the key **Proof of Possession (PoP)** of the user via `c_nonce` and enforces **DPoP Sender Constrainting**.
   * generates an actual **SD-JWT-based PID for Erika Mustermann** including randomized salting for selective disclosures.
 
-3. **`eudi-verifier-server_test.js` (REST API server)**
+3. **`eudi-verifier-server.js` (REST API server)**
   * provided **Verifier (Relying Party)** and **Issuer (PID Provider)** functionality
   * exports transient keys for simulating the trust store (`demo-keys.json`) to allow the simulation script to generate a cryptographically correct WIA signature
   * saves the verified document (`SD-JWT VC` or `ISO mdoc`) as well as the cryptographic `integrityLog` + `rawSdList` within the session and delivers them to the status endpoint
@@ -44,16 +44,6 @@ The project consists of the following modules and components:
   * **Session Coupling**: shows the session ID underneath the QR code, which allows for easy copy&pasting to faciliatte operating the simulator script more easily
   * renders a dynamic QR code that encodes the `opendid4vp://` request and conducts asynchronous status polling (AJAX)
   * presents the verified Eriks Mustermann mock ID profile and highlights whether the attributes have been transmitted as clear text (`drect_post`) or encrypted via JWE (`direct_post.jwt`)
-
-5. **`eudi-test-harness_demo_.js` (test simulator & end-to-end client)**
-  * crypto test simulator thar simulates the wallet app behavior
-  * offers different operating modes (`--mode=[1-5]`) to simulate the following interaction types:
-    * mode 1: unencrypted mock presentation (`direct_post`)
-    * mode 2: encrypted mock presentation via JWE (`direct_post.jwt`)
-    * mode 3: end-to-end test (issuance + JWE presentation)
-    * mode 4: mdoc CBOR presentation
-    * mode 5: end-to-end mdoc flow (issuance + CBOR presentation)
-  * presents a statistics table after each test run for perforance tracking
 
 ---
 
@@ -202,6 +192,7 @@ const jwtHeader = {
 In order for the smartphone wallet app to accept the self-signed developer certificate of the sandbox and to avoid running into situations where the certificate is rejected because of an unknwon certificate authority, we would have the following options:
 1. **Import developer certificate**: transfer the automatically generated file `rp-cert.pem` to your smartphone and install it using the system settings to declare it as trustworthy (*Security > Encryption > CA certificate*.
 2. **Developer mode (sandbox by-pass)**: most wallet app developer releases allow disabling the signature chain verification for testing purposes. Alternatively, the RP certificate can be explicitly declared trustworthy in the app config options by adding it to the trust list.
+3. **Import Sandbox certificate**: obtain an access certificate, registration certificate and a private key with which the CSR has been signed and store them inside the `./certs` folder. This is the recommended method in order to ensure compatibility with the DE EUDI wallet implementation / d-you.
 
 ## 🛠️ Install instructions
 
