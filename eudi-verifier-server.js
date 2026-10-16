@@ -51,6 +51,16 @@ app.use(session({
 const transactionStore = new Map();
 const accessTokenStore = new Map(); // token -> { dpopKey, claims }
 
+// debug logging
+let debugLogging = false;
+
+if (process.argv && process.argv.length > 2) {
+  if (process.argv[2] == "-d" || process.argv[2] == "--debug") {
+    debugLogging = true;
+  }
+}
+
+console.log("ℹ️ DEBUG LOGGING: ", debugLogging);
 
 // =============================================================================
 // CERTIFICATE & KEY LOADING / SYNTHESIS (DER & x509_hash)
