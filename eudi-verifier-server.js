@@ -19,6 +19,7 @@ const path = require('path');
 const dotenv = require("dotenv");
 const { EUDIVerifier } = require('./eudi-verifier-helper');
 const { EUDIPIDIssuerVerifier } = require('./eudi-issuer-verifier');
+const { Logger } = require('./util/logger');
 
 // read .env
 dotenv.config();
@@ -53,6 +54,7 @@ const accessTokenStore = new Map(); // token -> { dpopKey, claims }
 
 // debug logging
 let debugLogging = false;
+let logLevel = 0;
 
 if (process.argv && process.argv.length > 2) {
   let args = process.argv.slice(2);
@@ -62,9 +64,15 @@ if (process.argv && process.argv.length > 2) {
   if (args.find(item => item.trim() == "--debug")) {
     debugLogging = true;
   }
+  if (args.find(item => item.trim().startsWith("--log-level="))) {
+    let level = parseInt(args.find(item => item.trim().startsWith("--log-level=")).trim().split("=")[1]);
+    console.log("⚠️ log level: ", level);
+    logLevel = level;
+  }
 }
 
 console.log("ℹ️ DEBUG LOGGING: ", debugLogging);
+const logger = new Logger(debugLogging, logLevel);
 
 // =============================================================================
 // CERTIFICATE & KEY LOADING / SYNTHESIS (DER & x509_hash)
@@ -95,24 +103,18 @@ function loadCertificates() {
   try {
     if (fs.existsSync(accessKeyPath)) {
       accessCertPrivateKeyPem = fs.readFileSync(accessKeyPath, 'utf8');
-      if (debugLogging) {
-        console.log("🔎 access certificate private key file found");
-        console.log("🔎 PEM: ", accessCertPrivateKeyPem);
-      }
+      logger.log("🔎 access certificate private key file found");
+      logger.log(`🔎 PEM: ${accessCertPrivateKeyPem}`);
     }
 
     const certPath = [accessPemPath, accessCerPath, accessDerPath].find(p => fs.existsSync(p));
     if (certPath && accessCertPrivateKeyPem) {
-      if (debugLogging) {
-        console.log("🔎 certifcate file found in './certs'");
-      }
+      logger.log("🔎 certifcate file found in './certs'");
       const rawContent = fs.readFileSync(certPath);
       const x509 = new crypto.X509Certificate(rawContent);
       accessCertDerBuffer = x509.raw;
       loadedAccess = true;
-      if (debugLogging) {
-        console.log("🔎 X509: ", x509);
-      }
+      logger.log(`🔎 X509: ${x509}`);
       console.log('ℹ️ [CERT] Access Certificate loaded from: ' + path.basename(certPath));
     }
   } catch (e) {
