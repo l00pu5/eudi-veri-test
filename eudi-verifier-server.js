@@ -5,7 +5,7 @@
  * 1. RP backend for facilitating credential presentation (OpenID4VP) with JWE encryption (direct_post.jwt)
  * 2. Issuer backend for issuing mock PID credentials (OpenID4VCI / HAIP) -> experimental
  * 
- * Will generate demo keys and store them in ./demo-keys.json so external test clients may sign the WIA corrently.
+ * Will generate demo keys and store them in ./demo-keys.json so external test clients may sign the WIA correctly.
  *
  **/
 
