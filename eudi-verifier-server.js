@@ -55,7 +55,11 @@ const accessTokenStore = new Map(); // token -> { dpopKey, claims }
 let debugLogging = false;
 
 if (process.argv && process.argv.length > 2) {
-  if (process.argv[2] == "-d" || process.argv[2] == "--debug") {
+  let args = process.argv.slice(2);
+  if (args.find(item => item.trim() == "-d")) {
+    debugLogging = true;
+  }
+  if (args.find(item => item.trim() == "--debug")) {
     debugLogging = true;
   }
 }
@@ -91,6 +95,10 @@ function loadCertificates() {
   try {
     if (fs.existsSync(accessKeyPath)) {
       accessCertPrivateKeyPem = fs.readFileSync(accessKeyPath, 'utf8');
+      if (debugLogging) {
+        console.log("🔎 access certificate private key file found");
+        console.log("🔎 PEM: ", accessCertPrivateKeyPem);
+      }
     }
 
     const certPath = [accessPemPath, accessCerPath, accessDerPath].find(p => fs.existsSync(p));
