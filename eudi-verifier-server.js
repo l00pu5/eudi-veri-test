@@ -103,11 +103,17 @@ function loadCertificates() {
 
     const certPath = [accessPemPath, accessCerPath, accessDerPath].find(p => fs.existsSync(p));
     if (certPath && accessCertPrivateKeyPem) {
+      if (debugLogging) {
+        console.log("🔎 certifcate file found in './certs'");
+      }
       const rawContent = fs.readFileSync(certPath);
       const x509 = new crypto.X509Certificate(rawContent);
       accessCertDerBuffer = x509.raw;
       loadedAccess = true;
-      console.log('[CERT] Access Certificate loaded from: ' + path.basename(certPath));
+      if (debugLogging) {
+        console.log("🔎 X509: ", x509);
+      }
+      console.log('ℹ️ [CERT] Access Certificate loaded from: ' + path.basename(certPath));
     }
   } catch (e) {
     console.warn('[CERT] error while loading access certificate:', e.message);
@@ -234,7 +240,7 @@ try {
   console.error('Error during key generation:', e);
 }
 
-// issue instanciation
+// issuer instanciation
 const pidIssuer = new EUDIPIDIssuerVerifier({
   issuerId: ISSUER_CONFIG.issuerId,
   issuerPrivateKeyPem: demoIssuerKeys.privateKey.export({ type: 'sec1', format: 'pem' }),
@@ -647,7 +653,7 @@ app.post('/api/presentation/callback', async (req, res) => {
       expectedNonce: tx.nonce,
       trustedIssuerKeys: RP_CONFIG.trustedIssuerKeys,
       trustedWalletKeys: RP_CONFIG.trustedWalletKeys
-    });
+    }, debugLogging);
 
     console.log(`[RP] initiating validation for session: ${state}...`);
     const verificationResult = await verifier.verifyPresentation(parsedVpToken, wia_token);
