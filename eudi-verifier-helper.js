@@ -152,8 +152,9 @@ class EUDIVerifier {
   /**
    * Creates a new instance of the verifier
    * @param {Object} config - RP config object
+   * @param {Boolean} logging - logging flag, default = false
    */
-  constructor(config) {
+  constructor(config, debugLogging = false) {
     if (!config.clientId || !config.expectedNonce) {
       throw new Error('Configuration error: clientId + expectedNonce are mandatory');
     }
@@ -162,6 +163,7 @@ class EUDIVerifier {
     this.expectedNonce = config.expectedNonce;
     this.trustedIssuerKeys = config.trustedIssuerKeys || [];
     this.trustedWalletKeys = config.trustedWalletKeys || [];
+    this.logging = debugLogging;
   }
 
   /**
