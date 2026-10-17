@@ -66,7 +66,14 @@ class Logger {
   }
 
   log_msg(msg, config) {
-    // TODO: implement
+    let logLevel = config.logLevel || 0;
+    let logType = config.type || "LOG"; // can be LOG, WARNING, ERROR
+    let logPrefix = config.prefix || "";
+    let logModule = config.module || "";
+    let includeTimestamp = config.timestamp || false;
+    if (this.loggingEnabled && logLevel <= this.logLevel) {
+      // TODO: implement
+    }
   }
 }
 
