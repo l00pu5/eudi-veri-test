@@ -54,9 +54,10 @@ const C_BG_BRIGHT_WHITE = "\x1b[107";
 const C_BG_DEFAULT = "\x1b[49m";
 
 class Logger {
-  constructor(loggingEnabled, logLevel) {
+  constructor(loggingEnabled, logLevel, logStyling = false) {
     this.loggingEnabled = loggingEnabled;
     this.logLevel = logLevel;
+    this.logStyling = logStyling;
   }
 
   log(msg, logLevel = 1) {
