@@ -60,7 +60,7 @@ class Logger {
     this.logStyling = logStyling;
   }
 
-  log(msg, logLevel = 1) {
+  log(msg, module = "", logLevel = 1) {
     if (this.loggingEnabled && logLevel <= this.logLevel) {
       console.log(msg);
     }
