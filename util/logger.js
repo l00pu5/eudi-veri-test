@@ -72,7 +72,14 @@ class Logger {
     let logModule = config.module || "";
     let includeTimestamp = config.timestamp || false;
     if (this.loggingEnabled && logLevel <= this.logLevel) {
-      // TODO: implement
+      if (!Array.isArray(msg)) {
+        throw new Error("Logger: invalid input format!");
+      }
+      let result = ``;
+      for (seg of msg) {
+        // TODO: implement proper segment handling
+        result.concat("", seg);
+      }
     }
   }
 }
