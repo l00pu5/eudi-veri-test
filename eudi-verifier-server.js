@@ -86,7 +86,7 @@ let x5cHeaderArray = [];
 let verifierInfoArray = [];
 
 function loadCertificates() {
-  logger.log('[CERT] initializing access cert (PEM/DER) & registration cert (JWT/DER)...');
+  logger.log('ℹ️ [CERT] initializing access cert (PEM/DER) & registration cert (JWT/DER)...');
   const certsDir = path.join(__dirname, 'certs');
 
   const accessPemPath = path.join(certsDir, 'access_certificate.pem');
@@ -118,7 +118,7 @@ function loadCertificates() {
       logger.log('ℹ️ [CERT] Access Certificate loaded from: ' + path.basename(certPath));
     }
   } catch (e) {
-    logger.log('[CERT] error while loading access certificate:', e.message);
+    logger.log('ℹ️ [CERT] error while loading access certificate:', e.message);
   }
 
   let registrationJwtString = null;
@@ -128,18 +128,19 @@ function loadCertificates() {
       const content = fs.readFileSync(regPath, 'utf8').trim();
       if (content.startsWith('eyJ')) {
         registrationJwtString = content;
-        console.log('[CERT] Registration Certificate (JWT) loaded from: ' + path.basename(regPath));
+        logger.log('ℹ️ [CERT] Registration Certificate (JWT) loaded from: ' + path.basename(regPath));
       } else {
         registrationCertDerBuffer = fs.readFileSync(regPath);
-        console.log('[CERT] Registration Certificate (DER) loaded from: ' + path.basename(regPath));
+        logger.log('ℹ️ [CERT] Registration Certificate (DER) loaded from: ' + path.basename(regPath));
       }
     }
   } catch (e) {
-    console.warn('[CERT] error while loading registration certificate:', e.message);
+    logger.log('ℹ️ [CERT] error while loading registration certificate:', e.message);
   }
 
   if (!loadedAccess) {
-    console.log('[CERT] synthesizing access certificate & key...');
+    logger.log('ℹ️ [CERT] access certificate not loaded');
+    logger.log('ℹ️ [CERT] synthesizing access certificate & key...');
     const keyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
     accessCertPrivateKeyPem = keyPair.privateKey.export({ type: 'sec1', format: 'pem' });
     accessCertDerBuffer = Buffer.concat([Buffer.from([0x30, 0x82, 0x01, 0x20]), crypto.randomBytes(284)]);
@@ -147,7 +148,7 @@ function loadCertificates() {
 
   const sha256Hash = crypto.createHash('sha256').update(accessCertDerBuffer).digest();
   clientIdX509Hash = 'x509_hash:' + sha256Hash.toString('base64url');
-  console.log('[CERT] HAIP client_id:', clientIdX509Hash);
+  logger.log('🔎 [CERT] HAIP client_id / X509 hash:', clientIdX509Hash);
 
   x5cHeaderArray = [accessCertDerBuffer.toString('base64')];
 
