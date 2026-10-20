@@ -86,7 +86,7 @@ let x5cHeaderArray = [];
 let verifierInfoArray = [];
 
 function loadCertificates() {
-  console.log('[CERT] initializing access cert (PEM/DER) & registration cert (JWT/DER)...');
+  logger.log('[CERT] initializing access cert (PEM/DER) & registration cert (JWT/DER)...');
   const certsDir = path.join(__dirname, 'certs');
 
   const accessPemPath = path.join(certsDir, 'access_certificate.pem');
@@ -115,10 +115,10 @@ function loadCertificates() {
       accessCertDerBuffer = x509.raw;
       loadedAccess = true;
       logger.log(`🔎 X509: ${x509}`);
-      console.log('ℹ️ [CERT] Access Certificate loaded from: ' + path.basename(certPath));
+      logger.log('ℹ️ [CERT] Access Certificate loaded from: ' + path.basename(certPath));
     }
   } catch (e) {
-    console.warn('[CERT] error while loading access certificate:', e.message);
+    logger.log('[CERT] error while loading access certificate:', e.message);
   }
 
   let registrationJwtString = null;
