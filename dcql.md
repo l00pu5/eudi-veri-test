@@ -26,6 +26,7 @@ A simple example:
 ## 1. What is DCQL?
 
 ## Address data query
+
 ```json
 "dcql_query": {
     "credentials": [
@@ -142,6 +143,7 @@ A simple example:
 ```
 
 ## SD-JWT & mDOC
+
 ```json
 "dcql_query": {
     "credentials": [
@@ -202,12 +204,12 @@ A simple example:
       "id": "pid_cred",
       "format": "dc+sd-jwt",
       "meta": {
-        "vct_values": [ "urn:eudi:pid:1" ]
+        "vct_values": ["urn:eudi:pid:1"]
       },
       "claims": [
-        { "path": [ "given_name" ] },
-        { "path": [ "family_name" ] },
-        { "path": [ "birthdate" ] }
+        { "path": ["given_name"] },
+        { "path": ["family_name"] },
+        { "path": ["birthdate"] }
       ]
     },
     {
@@ -217,17 +219,14 @@ A simple example:
         "doctype_value": "eu.europa.ec.eudi.passport.1"
       },
       "claims": [
-        { "path": [ "eu.europa.ec.eudi.passport.1", "given_name" ] },
-        { "path": [ "eu.europa.ec.eudi.passport.1", "family_name" ] }
+        { "path": ["eu.europa.ec.eudi.passport.1", "given_name"] },
+        { "path": ["eu.europa.ec.eudi.passport.1", "family_name"] }
       ]
     }
   ],
   "credential_sets": [
     {
-      "options": [
-        [ "pid_cred" ],
-        [ "passport_cred" ]
-      ]
+      "options": [["pid_cred"], ["passport_cred"]]
     }
   ]
 }
@@ -375,6 +374,7 @@ A simple example:
 ```
 
 ## mDL
+
 ```json
 "dcql_query": {
     "credentials": [
@@ -440,6 +440,7 @@ A simple example:
 ```
 
 ## PID and diploma
+
 ```json
 "dcql_query": {
     "credentials": [
@@ -914,4 +915,158 @@ A simple example:
       }
     ]
   }
+```
+
+## OR
+
+```json
+{
+  "credentials": [
+    {
+      "id": "pid_query",
+      "format": "mdoc",
+      "meta": {
+        "doctype": "eu.europa.ec.eudi.pid.1"
+      },
+      "claims": [
+        {
+          "namespace": "eu.europa.ec.eudi.pid.1",
+          "claim": "family_name"
+        },
+        {
+          "namespace": "eu.europa.ec.eudi.pid.1",
+          "claim": "given_name"
+        }
+      ]
+    },
+    {
+      "id": "mdl_query",
+      "format": "mdoc",
+      "meta": {
+        "doctype": "org.iso.18013.5.1.mDL"
+      },
+      "claims": [
+        {
+          "namespace": "org.iso.18013.5.1",
+          "claim": "family_name"
+        },
+        {
+          "namespace": "org.iso.18013.5.1",
+          "claim": "given_name"
+        }
+      ]
+    }
+  ],
+  "credential_sets": [
+    {
+      "id": "identity_or_driving_license",
+      "options": [["pid_query"], ["mdl_query"]]
+    }
+  ]
+}
+```
+
+## AND
+
+```json
+{
+  "credentials": [
+    {
+      "id": "pid_identity_query",
+      "format": "mdoc",
+      "meta": {
+        "doctype": "eu.europa.ec.eudi.pid.1"
+      },
+      "claims": [
+        {
+          "namespace": "eu.europa.ec.eudi.pid.1",
+          "claim": "family_name"
+        },
+        {
+          "namespace": "eu.europa.ec.eudi.pid.1",
+          "claim": "given_name"
+        }
+      ]
+    },
+    {
+      "id": "mdl_driving_query",
+      "format": "mdoc",
+      "meta": {
+        "doctype": "org.iso.18013.5.1.mDL"
+      },
+      "claims": [
+        {
+          "namespace": "org.iso.18013.5.1",
+          "claim": "driving_privileges"
+        }
+      ]
+    }
+  ],
+  "credential_sets": [
+    {
+      "id": "identity_and_license_required",
+      "options": [["pid_identity_query", "mdl_driving_query"]]
+    }
+  ]
+}
+```
+
+## AND OR
+
+```json
+{
+  "credentials": [
+    {
+      "id": "required_pid",
+      "format": "mdoc",
+      "meta": {
+        "doctype": "eu.europa.ec.eudi.pid.1"
+      },
+      "claims": [
+        {
+          "namespace": "eu.europa.ec.eudi.pid.1",
+          "claim": "family_name"
+        },
+        {
+          "namespace": "eu.europa.ec.eudi.pid.1",
+          "claim": "given_name"
+        }
+      ]
+    },
+    {
+      "id": "optional_mdl",
+      "format": "mdoc",
+      "meta": {
+        "doctype": "org.iso.18013.5.1.mDL"
+      },
+      "claims": [
+        {
+          "namespace": "org.iso.18013.5.1",
+          "claim": "document_number"
+        }
+      ]
+    },
+    {
+      "id": "optional_ehic",
+      "format": "vc+sd-jwt",
+      "meta": {
+        "vct": "eu.europa.ec.eudi.ehic.1"
+      },
+      "claims": [
+        {
+          "claim": "institution_id"
+        }
+      ]
+    }
+  ],
+  "credential_sets": [
+    {
+      "id": "complex_verification_flow",
+      "options": [
+        ["required_pid", "optional_mdl"],
+        ["required_pid", "optional_ehic"]
+      ]
+    }
+  ]
+}
 ```
