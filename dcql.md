@@ -3,7 +3,7 @@
 A simple example:
 
 ```json
-{
+"dcql_query": {
   "credentials": [
     {
       "id": "my_credential",
