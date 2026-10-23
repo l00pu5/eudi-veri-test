@@ -1,0 +1,176 @@
+{
+  "defaultScenario": "pid_age_18",
+  "scenarios": {
+    "pid_age_18": {
+      "name": "DE National PID - Altersnachweis (18+)",
+      "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": {
+              "vct_values": ["urn:eudi:pid:de:1"]
+            },
+            "claims": [
+              {
+                "path": ["given_name"]
+              },
+              {
+                "path": ["family_name"]
+              },
+              {
+                "path": ["age_equal_or_over", "18"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "pid_full_identity": {
+      "name": "DE National PID - Vollständige Identität",
+      "description": "Fordert Vorname, Nachname, Geburtsdatum und Wohnort aus der deutschen PID an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_full_credential",
+            "format": "dc+sd-jwt",
+            "meta": {
+              "vct_values": ["urn:eudi:pid:de:1"]
+            },
+            "claims": [
+              {
+                "path": ["given_name"]
+              },
+              {
+                "path": ["family_name"]
+              },
+              {
+                "path": ["birthdate"]
+              },
+              {
+                "path": ["place_of_birth", "locality"]
+              },
+              {
+                "path": ["address", "street_address"]
+              },
+              {
+                "path": ["address", "locality"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "mdl_license_check": {
+      "name": "Mobile Driving License (mDL / ISO mdoc)",
+      "description": "Fordert Name und Fahrerlaubnisklassen aus dem digitalen Führerschein an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "mdl_credential",
+            "format": "mso_mdoc",
+            "meta": {
+              "doc_type": "org.iso.18013.5.1.mDL"
+            },
+            "claims": [
+              {
+                "path": ["org.iso.18013.5.1", "family_name"]
+              },
+              {
+                "path": ["org.iso.18013.5.1", "given_name"]
+              },
+              {
+                "path": ["org.iso.18013.5.1", "driving_privileges"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "custom_test_scenario": {
+      "name": "Custom Test / Sandbox Credential",
+      "description": "Test-Szenario für generische Identity Credentials in der Sandbox.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "my_identity_credential",
+            "format": "dc+sd-jwt",
+            "meta": {
+              "vct_values": [
+                "https://credentials.example.com/identity_credential"
+              ]
+            },
+            "claims": [
+              {
+                "path": ["given_name"]
+              },
+              {
+                "path": ["family_name"]
+              },
+              {
+                "path": ["birthdate"]
+              },
+              {
+                "path": ["is_over_18"]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "invalid_vct": {
+      "name": "Custom Test / Invalid VCT Name",
+      "description": "Fordert Attribute aus einem nichtexistenten VCT Type an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": {
+              "vct_values": [
+                "https://credentials.example.com/identity_credential"
+              ]
+            },
+            "claims": [
+              {
+                "path": ["given_name"]
+              },
+              {
+                "path": ["family_name"]
+              },
+              {
+                "path": ["age_equal_or_over", "18"]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
