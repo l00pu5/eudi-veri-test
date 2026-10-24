@@ -68,10 +68,7 @@ if (process.argv && process.argv.length > 2) {
   }
   if (args.find((item) => item.trim().startsWith("--log-level="))) {
     let level = parseInt(
-      args
-        .find((item) => item.trim().startsWith("--log-level="))
-        .trim()
-        .split("=")[1],
+      args.find((item) => item.trim().startsWith("--log-level=")).trim().split("=")[1],
     );
     console.log("⚠️ log level: ", level);
     logLevel = level;
@@ -82,6 +79,7 @@ if (process.argv && process.argv.length > 2) {
 }
 
 console.log("ℹ️ DEBUG LOGGING: ", debugLogging);
+console.log("ℹ️ instantiating logger");
 const logger = new Logger(debugLogging, logLevel);
 
 // =============================================================================
@@ -118,33 +116,26 @@ function getRequestedScenarioId() {
 }
 
 function loadScenarioAndCertificates() {
-  console.log("[Scenario Manager v26] Lade Szenarien aus scenarios.json...");
+  logger.log("[SCEN] loading scenarios from scenarios.json...");
   const scenariosPath = path.join(__dirname, "scenarios.json");
   let scenariosData = null;
 
   if (fs.existsSync(scenariosPath)) {
+    logger.log("ℹ️ scenarios.json file found");
     try {
       scenariosData = JSON.parse(fs.readFileSync(scenariosPath, "utf8"));
-      console.log(
-        "[Scenario Manager v26] scenarios.json erfolgreich eingelesen.",
-      );
+      logger.log("ℹ️ [SCEN] scenarios.json parsed successfully");
     } catch (err) {
-      console.error(
-        "[Scenario Manager v26] Fehler beim Lesen von scenarios.json:",
-        err.message,
-      );
+      logger.log("❌ [SCEN] error while loading scenarios.json:", err.message);
     }
   } else {
-    console.warn(
-      "[Scenario Manager v26] scenarios.json nicht gefunden. Verwende integrierte Fallback-Szenarien.",
-    );
+    logger.log("⚠️ [SCEN] scenarios.json not found; applying fallback");
   }
 
   const scenarios = scenariosData?.scenarios || {
     pid_age_18: {
       name: "DE National PID - Altersnachweis (18+)",
-      description:
-        "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
+      description: "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
       certs: {
         accessCertificate: "certs/access_certificate.pem",
         accessPrivateKey: "certs/access_certificate_key.pem",
@@ -172,19 +163,13 @@ function loadScenarioAndCertificates() {
 
   if (requestedId && scenarios[requestedId]) {
     activeScenarioId = requestedId;
-    console.log(
-      `[Scenario Manager v26] Ausgewähltes Szenario via CLI/ENV: "${activeScenarioId}"`,
-    );
+    logger.log(`🔎 [SCEN] selected scenario via CLI/ENV: "${activeScenarioId}"`);
   } else {
     if (requestedId) {
-      console.warn(
-        `[Scenario Manager v26] WARNUNG: Szenario-ID "${requestedId}" nicht in scenarios.json gefunden! Nutze Default.`,
-      );
+      logger.log(`⚠️ [SCEN] scnario ID "${requestedId}" not found in scenarios.json; using default`);
     }
     activeScenarioId = defaultId;
-    console.log(
-      `[Scenario Manager v26] Ausgewähltes Default-Szenario: "${activeScenarioId}"`,
-    );
+    logger.log(`🔎 [SCEN] selected default scenario: "${activeScenarioId}"`);
   }
 
   allScenariosMap = scenarios;
@@ -192,13 +177,13 @@ function loadScenarioAndCertificates() {
   activeDcqlQuery = activeScenario.dcqlQuery;
 
   console.log(
-    `\n================================================================`,
+    `================================================================`,
   );
   console.log(`  AKTIVES SZENARIO: [ ${activeScenarioId} ]`);
   console.log(`  Name        : ${activeScenario.name || "Unbenannt"}`);
   console.log(`  Description : ${activeScenario.description || "Keine"}`);
   console.log(
-    `================================================================\n`,
+    `================================================================`,
   );
 
   console.log("[Scenario Manager v26] Verfügbare Szenarien in scenarios.json:");
@@ -332,9 +317,7 @@ function loadCertificatesForScenario(certsConfig = {}) {
 
 function switchScenario(scenarioId) {
   if (!scenarioId || !allScenariosMap[scenarioId]) {
-    console.warn(
-      `[Scenario Manager v27] Szenario-ID "${scenarioId}" nicht gefunden.`,
-    );
+    logger.log(`⚠️ [SCEN] scenario ID "${scenarioId}" not found`);
     return false;
   }
   activeScenarioId = scenarioId;
@@ -344,15 +327,13 @@ function switchScenario(scenarioId) {
   if (typeof RP_CONFIG !== "undefined") {
     RP_CONFIG.clientId = clientIdX509Hash || "x509_hash:demo";
   }
-  console.log(
-    `[Scenario Manager v27] Dynamischer Wechsel zu Szenario: "${activeScenarioId}" (${activeScenario.name || ""})`,
-  );
+  logger.log(`ℹ️ [SCEN] dynamic switch to scenario: "${activeScenarioId}" (${activeScenario.name || ""})`);
   return true;
 }
 
 loadScenarioAndCertificates();
 
-// Konfiguration der Relying Party (Präsentation)
+// RP config (presentation)
 const RP_CONFIG = {
   clientId: clientIdX509Hash || "x509_hash:demo",
   publicUrl: process.env.PUBLIC_URL || `http://localhost:${PORT}`, // dynamic resolution
@@ -360,34 +341,34 @@ const RP_CONFIG = {
   trustedWalletKeys: [],
 };
 
-// Konfiguration des Credential Issuers (Ausstellung)
+// issuer config
 const ISSUER_CONFIG = {
-  issuerId: process.env.ISSUER_ID || `http://localhost:${PORT}/api/issuance`, // Dynamischer IssuerId passend zum Server-Host
+  issuerId: process.env.ISSUER_ID || `http://localhost:${PORT}/api/issuance`, // dynamic IssuerId matching the server host
   publicUrl: process.env.PUBLIC_URL || `http://localhost:${PORT}`,
   trustedWalletKeys: [],
 };
 
-// Kryptografische Schlüssel für Demo-Betrieb generieren (simuliert Trust-Store / PKI)
+// generate demo keys (simulated trust store / PKI)
 let demoIssuerKeys, demoWalletKeys, rpSigningKeys;
 let rpSigningCertBase64 = "";
 
 try {
   const { execSync } = require("child_process");
-  if (!fs.existsSync("/workspace/scratch/rp-private-key.pem")) {
+  if (!fs.existsSync("./rp-private-key.pem")) {
     const cnfContent = `[req]\ndistinguished_name = req_distinguished_name\nreq_extensions = v3_req\nx509_extensions = v3_req\nprompt = no\n\n[req_distinguished_name]\nCN = client.example.org\n\n[v3_req]\nkeyUsage = nonRepudiation, digitalSignature, keyEncipherment\nextendedKeyUsage = serverAuth, clientAuth\nsubjectAltName = DNS:client.example.org`;
-    fs.writeFileSync("/workspace/scratch/openssl.cnf", cnfContent);
+    fs.writeFileSync("./openssl.cnf", cnfContent);
     execSync(
-      "openssl ecparam -name prime256v1 -genkey -noout -out /workspace/scratch/rp-private-key.pem",
+      "openssl ecparam -name prime256v1 -genkey -noout -out ./rp-private-key.pem",
     );
     execSync(
-      "openssl req -new -x509 -key /workspace/scratch/rp-private-key.pem -out /workspace/scratch/rp-cert.pem -days 365 -config /workspace/scratch/openssl.cnf",
+      "openssl req -new -x509 -key ./rp-private-key.pem -out ./rp-cert.pem -days 365 -config ./openssl.cnf",
     );
   }
   const privPem = fs.readFileSync(
-    "/workspace/scratch/rp-private-key.pem",
+    "./rp-private-key.pem",
     "utf8",
   );
-  const certPem = fs.readFileSync("/workspace/scratch/rp-cert.pem", "utf8");
+  const certPem = fs.readFileSync("./rp-cert.pem", "utf8");
   rpSigningKeys = {
     privateKey: crypto.createPrivateKey(privPem),
     publicKey: crypto.createPublicKey(certPem),
@@ -453,7 +434,7 @@ try {
   console.error("Error during key generation:", e);
 }
 
-// Instanziierung des EUDI PID Providers (Aussteller)
+// PID provider instantiation
 const pidIssuer = new EUDIPIDIssuerVerifier({
   issuerId: ISSUER_CONFIG.issuerId,
   issuerPrivateKeyPem: demoIssuerKeys.privateKey.export({
@@ -468,7 +449,7 @@ const pidIssuer = new EUDIPIDIssuerVerifier({
 });
 
 // =============================================================================
-// KRYPTOGRAFISCHE HILFSFUNKTIONEN FÜR JWE-ENTSCHLÜSSELUNG (ECDH-ES + A128GCM/A256GCM)
+// CRYPTO AUX FUNCTION FOR JWE DECRYPTION (ECDH-ES + A128GCM/A256GCM)
 // =============================================================================
 
 function deriveConcatKDF(sharedSecret, keyLengthBytes, encAlg, apuB64, apvB64) {
@@ -508,7 +489,7 @@ function deriveConcatKDF(sharedSecret, keyLengthBytes, encAlg, apuB64, apvB64) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ABHÄNGIGKEITSFREIER LIGHTWEIGHT CBOR-CODEC (GEMÄß RFC 8949)
+// LIGHTWEIGHT CBOR CODEC (RFC 8949)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function encodeTypeAndLength(type, length) {
@@ -579,7 +560,7 @@ function encodeCBOR(val) {
       ...encodedPairs,
     ]);
   }
-  throw new Error("Nicht unterstützter CBOR-Datentyp: " + typeof val);
+  throw new Error("Unsupported CBOR data type: " + typeof val);
 }
 
 function base64url(strOrBuffer) {
@@ -605,7 +586,7 @@ function decryptJweResponse(jweString, privateKeyPem) {
     throw new Error(`Unsupported JWE algorithm: ${header.alg}`);
   }
   if (header.enc !== "A128GCM" && header.enc !== "A256GCM") {
-    throw new Error(`Unsupport symmetric encryption: ${header.enc}`);
+    throw new Error(`Unsupported symmetric encryption: ${header.enc}`);
   }
   if (!header.epk) {
     throw new Error("Ephemeral public key (epk) missing in JWE header");
@@ -655,7 +636,7 @@ function decryptJweResponse(jweString, privateKeyPem) {
 }
 
 // =============================================================================
-// TEIL 1: SPREAD-ENDPOINTS FÜR PRÄSENTATION (OPENID4VP)
+// SPREAD ENDPOINTS FOR PRESENTATION (OPENID4VP)
 // =============================================================================
 
 app.get("/api/scenarios", (req, res) => {
@@ -691,7 +672,7 @@ app.post("/api/scenario/select", (req, res) => {
   } else {
     res
       .status(400)
-      .json({ success: false, error: `Unbekanntes Szenario: ${scenarioId}` });
+      .json({ success: false, error: `Unknown scenario: ${scenarioId}` });
   }
 });
 
@@ -797,7 +778,7 @@ app.get("/api/presentation/request-jwt", (req, res) => {
   try {
     const tokenInput = `${Buffer.from(JSON.stringify(jwtHeader)).toString("base64url")}.${Buffer.from(JSON.stringify(requestPayload)).toString("base64url")}`;
 
-    // Nutze den zum x5c-Zertifikat passenden privaten Schlüssel (accessCertPrivateKeyPem)
+    // use the private key matching the x5c cert (accessCertPrivateKeyPem)
     const signingKey = accessCertPrivateKeyPem || rpSigningKeys.privateKey;
 
     // ES256 / JWS requires IEEE P1363 encoding (64 byte r||s buffer)
@@ -825,7 +806,7 @@ app.get("/api/presentation/request-jwt", (req, res) => {
 app.post("/api/presentation/callback", async (req, res) => {
   let { vp_token, state, wia_token, response } = req.body;
 
-  console.log(`[RP Server] direct_post Callback erhalten.`);
+  console.log(`[RP Server] direct_post callback received`);
 
   let isEncrypted = false;
   let decryptedPayload = null;
@@ -870,7 +851,7 @@ app.post("/api/presentation/callback", async (req, res) => {
         } catch (err) {
           decryptionError = err;
           console.warn(
-            `[RP Server] Direkter Entschlüsselungsvergleich fehlgeschlagen:`,
+            `[RP] direct decryption attempt has failed:`,
             err.message,
           );
         }
@@ -891,7 +872,7 @@ app.post("/api/presentation/callback", async (req, res) => {
               `[RP] JWE decrypted succesfully; linked to session: ${state}`,
             );
             break;
-          } catch (err) {}
+          } catch (err) { }
         }
       }
     }
@@ -961,7 +942,7 @@ app.post("/api/presentation/callback", async (req, res) => {
       tx.claims = verificationResult.claims;
       tx.responseCode = responseCode;
       tx.isEncrypted = isEncrypted;
-      tx.format = verificationResult.format; // Speicher Format (SD-JWT VC oder ISO mdoc)
+      tx.format = verificationResult.format; // storage format (SD-JWT VC or ISO mdoc)
       tx.integrityLog = verificationResult.integrityLog || [];
       tx.rawSdList = verificationResult.rawSdList || [];
       transactionStore.set(state, tx);
@@ -984,7 +965,7 @@ app.post("/api/presentation/callback", async (req, res) => {
       });
     }
   } catch (err) {
-    console.error("Interner direct_post Fehler:", err);
+    console.error("Internal direct_post error:", err);
     tx.status = "FAILED";
     tx.errors.push(err.message);
     transactionStore.set(state, tx);
@@ -1012,7 +993,7 @@ app.get("/api/presentation/status", (req, res) => {
       claims: tx.claims,
       responseCode: tx.responseCode,
       isEncrypted: tx.isEncrypted,
-      format: tx.format, // Gibt das Format an das Frontend weiter
+      format: tx.format, // indicates the format to frontend
       integrityLog: tx.integrityLog || [],
       rawSdList: tx.rawSdList || [],
     });
@@ -1031,7 +1012,7 @@ app.get("/api/presentation/status", (req, res) => {
 });
 
 // =============================================================================
-// TEIL 2: ENDPOINTS FÜR AUSSTELLUNG & BELEGVALIDIERUNG (OPENID4VCI)
+// ENDPOINTS FOR ISSUANCE & ATTESTATION VALIDATION (OPENID4VCI)
 // =============================================================================
 
 app.get("/api/issuance/session-info", (req, res) => {
@@ -1446,19 +1427,13 @@ app.post("/api/issuance/credential", (req, res) => {
   }
 });
 
-// Starten des API-Servers
+// launching the API server
 app.listen(PORT, () => {
-  console.log(
-    `\n=== EUDI WALLET INTEGRATED SERVER v18 (PRESENTATION & ISSUANCE) ===`,
-  );
-  console.log(`Server läuft lokal auf: http://localhost:${PORT}`);
-  console.log(`Öffentliche RP-Identität (client_id): ${RP_CONFIG.clientId}`);
-  console.log(
-    `Öffentliche Issuer-Identität (issuer_id): ${ISSUER_CONFIG.issuerId}`,
-  );
-  console.log(
-    `Warte auf Wallet-Verbindungen (Präsentation und Ausstellung)...\n`,
-  );
+  console.log(`=== EUDI WALLET REST API SERVER ===`);
+  console.log(`Server is running at: http://localhost:${PORT}`);
+  console.log(`RP identity (client_id): ${RP_CONFIG.clientId}`);
+  console.log(`Issuer identity (issuer_id): ${ISSUER_CONFIG.issuerId}`);
+  console.log(`Awaiting incoming wallet connections...`);
 });
 
 module.exports = app;
