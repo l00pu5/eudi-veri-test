@@ -5,7 +5,7 @@
       "name": "DE National PID - Altersnachweis (18+)",
       "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
       "certs": {
-        "accessCertificate": "certs/access_certificate.pem",
+        "accessCertificate": "certs/access_certificate.cer",
         "accessPrivateKey": "certs/access_certificate_key.pem",
         "registrationCertificate": "certs/registration_certificate.jwt"
       },
