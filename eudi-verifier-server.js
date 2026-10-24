@@ -166,7 +166,7 @@ function loadScenarioAndCertificates() {
     logger.log(`🔎 [SCEN] selected scenario via CLI/ENV: "${activeScenarioId}"`);
   } else {
     if (requestedId) {
-      logger.log(`⚠️ [SCEN] scnario ID "${requestedId}" not found in scenarios.json; using default`);
+      logger.log(`⚠️ [SCEN] scenario ID "${requestedId}" not found in scenarios.json; using default`);
     }
     activeScenarioId = defaultId;
     logger.log(`🔎 [SCEN] selected default scenario: "${activeScenarioId}"`);
@@ -179,9 +179,9 @@ function loadScenarioAndCertificates() {
   console.log(
     `================================================================`,
   );
-  console.log(`  AKTIVES SZENARIO: [ ${activeScenarioId} ]`);
-  console.log(`  Name        : ${activeScenario.name || "Unbenannt"}`);
-  console.log(`  Description : ${activeScenario.description || "Keine"}`);
+  console.log(`  ACTIVE SCENARIO: [ ${activeScenarioId} ]`);
+  console.log(`  Name           : ${activeScenario.name || "unknown"}`);
+  console.log(`  Description    : ${activeScenario.description || "none"}`);
   console.log(
     `================================================================`,
   );
@@ -211,15 +211,17 @@ function loadCertificatesForScenario(certsConfig = {}) {
     ? path.resolve(__dirname, certsConfig.registrationCertificate)
     : path.join(certsDir, "registration_certificate.jwt");
 
+  console.log("🔎 cert config", certsConfig);
+  console.log("🔎 access cert path:", accessCertPath);
+  console.log("🔎 access cert key path:", accessKeyPath);
+  console.log("🔎 reg cert path:", regCertPath);
+
   let loadedAccess = false;
 
   try {
     if (fs.existsSync(accessKeyPath)) {
       accessCertPrivateKeyPem = fs.readFileSync(accessKeyPath, "utf8");
-      console.log(
-        "[Cert Loader v26] Private Key geladen aus:",
-        path.basename(accessKeyPath),
-      );
+      console.log("[Cert Loader v26] Private Key geladen aus:", path.basename(accessKeyPath));
     }
 
     if (fs.existsSync(accessCertPath) && accessCertPrivateKeyPem) {
