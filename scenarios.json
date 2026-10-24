@@ -29,6 +29,13 @@
               }
             ]
           }
+        ],
+        "credential_sets": [
+          {
+            "options": [
+              ["pid_age_credential"]
+            ]
+          }
         ]
       }
     },
@@ -69,6 +76,13 @@
               }
             ]
           }
+        ],
+        "credential_sets": [
+          {
+            "options": [
+              ["pid_full_crdential"]
+            ]
+          }
         ]
       }
     },
@@ -100,7 +114,12 @@
               }
             ]
           }
-        ]
+        ],
+        "credential_sets": {
+          "options": [
+            ["mdl_credential"]
+          ]
+        }
       }
     },
     "custom_test_scenario": {
@@ -136,7 +155,12 @@
               }
             ]
           }
-        ]
+        ],
+        "credential_sets": {
+          "options": [
+            ["my_identity_credential"]
+          ]
+        }
       }
     },
     "invalid_vct": {
@@ -169,7 +193,12 @@
               }
             ]
           }
-        ]
+        ],
+        "credential_sets":{
+          "options": [
+            ["pid_age_credential"]
+          ]
+        }
       }
     }
   }
