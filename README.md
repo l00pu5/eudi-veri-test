@@ -246,12 +246,60 @@ project_folder/
 └── package.json
 ```
 
+### Step 0: .env variables
+
+- `PORT`
+- `PUBLIC_URL`
+- `SCENARIO`
+- `ISSUER_ID`
+
 ### Step 1: launching the sandbox server
 Launch the Express backend on port `3000`. The server will automatically generate the demo trust keys upon starting and will save them at `./demo-keys.json`:
 ```bash
-node eudi-verifier-server_test.js
+node eudi-verifier-server.js
 ```
 *Output*: Server is running on `http://localhost:3000`, awaiting incoming connections.
+
+#### Launching server with pre-defined scenario
+
+Pre-defined scenarios can be defined in `scenarios.json`.
+Each scenario is assigned a genuine ID that can be specified when invoking the API server.
+
+Furthermore, the current scenario can be retrieved while the server is running via a dedciated API endpoint: `GET /api/scneario`
+
+Example output:
+```json
+{ 
+  "success": true, 
+  "scenarioId": "pid_age_18", 
+  "scenario": 
+  { 
+    "name": "DE National PID - Altersnachweis (18+)", 
+    "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.", 
+    "certs": { ... }, 
+    "dcqlQuery": { ... } 
+  }, 
+  "clientId": "x509\_hash:aDp0vbpZaS9EuexcHUHTYCudNzp3jHnGHKLRLndA5D0", 
+  "publicUrl": "https://gaining-decaf-word.ngrok-free.dev" 
+}
+```
+
+##### Specifying the scenario ID via command line param
+
+```bash
+node eudi-verifier-server.js --scenario=pid_full_identity
+```
+
+```bash
+node eudi-verifier-server-v26.js -s mdl_license_check
+node eudi-verifier-server-v26.js pid_full_identity
+```
+
+##### Specifying the scenario ID via env variable
+
+```bash
+SCENARIO=pid_age_18 PUBLIC_URL=https://<your-ngrok-domain> node eudi-verifier-server-v26.js
+```
 
 #### HTTPS tunneling via ngrok
 If the localhost instance should be accessible from the outside and an HTTPS tunnel should be provided, issue the following command:
