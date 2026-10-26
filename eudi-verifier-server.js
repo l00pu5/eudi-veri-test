@@ -1010,6 +1010,28 @@ app.get(['/api/issuance/.well-known/openid-credential-issuer', '/.well-known/ope
           ]
         }
       },
+      "Employee_ID_SD_JWT_VC": {
+        format: "dc+sd-jwt",
+        scope: "Employee_ID_SD_JWT_VC",
+        credential_signing_alg_values_supported: ["ES256"],
+        cryptographic_binding_methods_supported: ["jwk"],
+        proof_types_supported: {
+          "jwt": {
+            "proof_signing_alg_values_supported": ["ES256"]
+          }
+        },
+        vct: "urn:company:employee_id:1",
+        credential_metadata: {
+          display: [
+            {
+              name: "Mitarbeiter-Ausweis (Employee ID)",
+              locale: "de-DE",
+              background_color: "#1E293B",
+              text_color: "#FFFFFF"
+            }
+          ]
+        }
+      },
       "mDL_mso_mdoc": {
         format: "mso_mdoc",
         scope: "mDL_mso_mdoc",
@@ -1225,7 +1247,16 @@ app.post('/api/issuance/credential', (req, res) => {
     } else {
       console.log('[ISS] ✅ PoP verification successful; generating SD-JWT VC...');
 
-      const defaultClaims = {
+      const isEmployee = format === 'employee_sd_jwt' || tokenData.scope === 'Employee_ID_SD_JWT_VC';
+
+      const defaultClaims = isEmployee ? {
+        given_name: 'Max',
+        family_name: 'Mustermann',
+        employee_id: 'EMP-2026-8942',
+        department: 'IT-Infrastruktur & Sicherheit',
+        role: 'Senior Security Architect',
+        vct: 'urn:company:employee_id:1'
+      } : {
         given_name: 'Erika',
         family_name: 'Mustermann',
         birthdate: '1998-08-12',
@@ -1240,6 +1271,9 @@ app.post('/api/issuance/credential', (req, res) => {
       };
 
       const finalClaims = tokenData.claims || defaultClaims;
+      if (isEmployee && !finalClaims.vct) {
+        finalClaims.vct = 'urn:company:employee_id:1';
+      }
       const validityDays = tokenData.validityDays || 90;
 
       const signedPid = pidIssuer.issuePID({
