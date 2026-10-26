@@ -200,6 +200,50 @@
           ]
         }
       }
+    },
+    "employee_id_scenario": {
+      "name": "Mitarbeiter-Ausweis (Employee ID)",
+      "description": "Fordert Vorname, Nachname, Mitarbeiter-ID, Abteilung und Rolle aus dem Mitarbeiter-Ausweis an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "employee_credential",
+            "format": "dc+sd-jwt",
+            "meta": {
+              "vct_values": ["urn:company:employee_id:1"]
+            },
+            "claims": [
+              {
+                "path": ["given_name"]
+              },
+              {
+                "path": ["family_name"]
+              },
+              {
+                "path": ["employee_id"]
+              },
+              {
+                "path": ["department"]
+              },
+              {
+                "path": ["role"]
+              }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "options": [
+              ["employee_credential"]
+            ]
+          }
+        ]
+      }
     }
   }
 }
