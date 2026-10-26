@@ -36,7 +36,7 @@ app.use(express.static(__dirname));
 
 // route for frontend (index.html)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'index_new.html'));
 });
 
 // session management for storing nonces + verification results
