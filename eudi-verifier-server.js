@@ -976,6 +976,22 @@ app.all('/api/issuance/initiate', (req, res) => {
   });
 });
 
+// logos / visuals for employee card credential
+app.get('/assets/company_logo.png', (req, res) => {
+  const candidatePaths = [
+    path.join(__dirname, 'company_logo.png'),
+    path.join(__dirname, 'assets', 'company_logo.png'),
+    '/workspace/artifacts/company_logo.png',
+    '/workspace/scratch/company_logo.png'
+  ];
+  for (const p of candidatePaths) {
+    if (fs.existsSync(p)) {
+      return res.sendFile(p);
+    }
+  }
+  res.status(404).send('Logo image not found');
+});
+
 app.get(['/api/issuance/.well-known/openid-credential-issuer', '/.well-known/openid-credential-issuer/api/issuance'], (req, res) => {
   const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
   const metadata = {
@@ -1024,10 +1040,37 @@ app.get(['/api/issuance/.well-known/openid-credential-issuer', '/.well-known/ope
         credential_metadata: {
           display: [
             {
-              name: "Mitarbeiter-Ausweis (Employee ID)",
+              name: "Muster GmbH - Digitaler Mitarbeiter-Ausweis",
               locale: "de-DE",
-              background_color: "#1E293B",
-              text_color: "#FFFFFF"
+              description: "Offizieller fälschungssicherer Betriebsausweis & Digital Access Badge der Muster GmbH",
+              background_color: "#0f172a",
+              text_color: "#ffffff",
+              logo: {
+                uri: `${ISSUER_CONFIG.publicUrl}/assets/company_logo.png`,
+                alt_text: "Muster GmbH Secure Access Logo"
+              }
+            }
+          ],
+          claims: [
+            {
+              path: ["given_name"],
+              display: [{ name: "Vorname", locale: "de-DE" }]
+            },
+            {
+              path: ["family_name"],
+              display: [{ name: "Nachname", locale: "de-DE" }]
+            },
+            {
+              path: ["employee_id"],
+              display: [{ name: "Personalnummer / ID", locale: "de-DE" }]
+            },
+            {
+              path: ["department"],
+              display: [{ name: "Abteilung", locale: "de-DE" }]
+            },
+            {
+              path: ["role"],
+              display: [{ name: "Berechtigungsrolle", locale: "de-DE" }]
             }
           ]
         }
