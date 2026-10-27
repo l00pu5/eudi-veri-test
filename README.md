@@ -305,6 +305,7 @@ SCENARIO=pid_age_18 PUBLIC_URL=https://<your-ngrok-domain> node eudi-verifier-se
 If the localhost instance should be accessible from the outside and an HTTPS tunnel should be provided, issue the following command:
 ```bash
 ngrok http 3000
+ngrok http 3000 --request-header-add "ngrok-skip-browser-warning: true"
 ```
 
 **ATTENTION**: please ensure that the public URL that `ngrok` is printing to the terminal is added to `.env` accordingly so dynamic URLs can be built properly by the server that will take the `ngrok` tunnel URL into consideration. This is to ensure that e.g. the QR codes can be scanned via a smartphone-hosted wallet app and the smartphone can reach the server instance.
