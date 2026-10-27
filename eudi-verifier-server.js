@@ -28,6 +28,12 @@ dotenv.config();
 
 // configure middleware
 app.use(cors({ origin: true, credentials: true }));
+app.use((req, res, next) => {
+  res.setHeader('ngrok-skip-browser-warning', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  next();
+});
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
@@ -36,7 +42,7 @@ app.use(express.static(__dirname));
 
 // route for frontend (index.html)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index_new.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // session management for storing nonces + verification results
@@ -277,7 +283,6 @@ function loadCertificatesForScenario(certsConfig = {}) {
   }
 }
 
-
 function switchScenario(scenarioId) {
   if (!scenarioId || !allScenariosMap[scenarioId]) {
     console.warn(`[SCEN] scenario id "${scenarioId}" not found`);
@@ -374,7 +379,6 @@ const pidIssuer = new EUDIPIDIssuerVerifier({
 // AUX CRYPTO FUNCTIONS FOR JWE DECRYPTION (ECDH-ES + A128GCM/A256GCM)
 // =============================================================================
 
-
 function deriveConcatKDF(sharedSecret, keyLengthBytes, encAlg, apuB64, apvB64) {
   const algorithmId = Buffer.from(encAlg, 'ascii');
   const algIdLength = Buffer.alloc(4);
@@ -410,7 +414,6 @@ function deriveConcatKDF(sharedSecret, keyLengthBytes, encAlg, apuB64, apvB64) {
   const hash = crypto.createHash('sha256').update(kdfInput).digest();
   return hash.subarray(0, keyLengthBytes);
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LIGHTWEIGHT CBOR CODEC (RFC 8949)
@@ -483,7 +486,6 @@ function base64url(strOrBuffer) {
   const buffer = Buffer.isBuffer(strOrBuffer) ? strOrBuffer : Buffer.from(strOrBuffer);
   return buffer.toString('base64url');
 }
-
 
 function decryptJweResponse(jweString, privateKeyPem) {
   const parts = jweString.split('.');
@@ -992,7 +994,11 @@ app.get('/assets/company_logo.png', (req, res) => {
   res.status(404).send('Logo image not found');
 });
 
-app.get(['/api/issuance/.well-known/openid-credential-issuer', '/.well-known/openid-credential-issuer/api/issuance'], (req, res) => {
+app.get([
+  '/api/issuance/.well-known/openid-credential-issuer',
+  '/.well-known/openid-credential-issuer/api/issuance',
+  '/api/issuance/.well-known/openid-credential-issuer'
+], (req, res) => {
   const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
   const metadata = {
     credential_issuer: issuerUrl,
@@ -1101,7 +1107,63 @@ app.get(['/api/issuance/.well-known/openid-credential-issuer', '/.well-known/ope
 
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
-  res.json(metadata);
+
+  try {
+    const issuerPublicKeyJwk = demoIssuerKeys.publicKey.export({ format: 'jwk' });
+    const jwtHeader = {
+      alg: 'ES256',
+      typ: 'openid-credential-issuer+jwt',
+      jwk: issuerPublicKeyJwk
+    };
+    if (typeof x5cHeaderArray !== 'undefined' && x5cHeaderArray.length > 0) {
+      jwtHeader.x5c = x5cHeaderArray;
+    }
+
+    const jwtPayload = {
+      ...metadata,
+      iss: issuerUrl,
+      sub: issuerUrl,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 86400
+    };
+
+    const tokenInput = `${Buffer.from(JSON.stringify(jwtHeader)).toString('base64url')}.${Buffer.from(JSON.stringify(jwtPayload)).toString('base64url')}`;
+    const signingKey = accessCertPrivateKeyPem || demoIssuerKeys.privateKey;
+    const signature = crypto.sign('SHA256', Buffer.from(tokenInput), {
+      key: signingKey,
+      dsaEncoding: 'ieee-p1363'
+    });
+    const signedMetadataJwt = `${tokenInput}.${signature.toString('base64url')}`;
+    res.json({
+      ...metadata,
+      signed_metadata: signedMetadataJwt
+    });
+  } catch (e) {
+    console.error('[ISS] error while signing signed_metadata:', e);
+    res.json(metadata);
+  }
+});
+
+app.get([
+  '/.well-known/openid-configuration',
+  '/.well-known/oauth-authorization-server',
+  '/api/issuance/.well-known/openid-configuration',
+  '/api/issuance/.well-known/oauth-authorization-server'
+], (req, res) => {
+  const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({
+    issuer: issuerUrl,
+    authorization_endpoint: `${issuerUrl}/authorize`,
+    token_endpoint: `${issuerUrl}/token`,
+    nonce_endpoint: `${issuerUrl}/nonce`,
+    credential_endpoint: `${issuerUrl}/credential`,
+    grant_types_supported: ["authorization_code", "urn:ietf:params:oauth:grant-type:pre-authorized_code"],
+    response_types_supported: ["code"],
+    token_endpoint_auth_methods_supported: ["none", "client_secret_post", "attest_jwt_client_auth"],
+    dpop_signing_alg_values_supported: ["ES256", "RS256"]
+  });
 });
 
 app.post('/api/issuance/nonce', (req, res) => {
@@ -1352,7 +1414,7 @@ app.post('/api/issuance/credential', (req, res) => {
   }
 });
 
-// Starten des API-Servers
+// launching the API server
 app.listen(PORT, () => {
   console.log(`=== EUDI WALLET REST API SERVER ===`);
   console.log(`Server is running at: http://localhost:${PORT}`);
