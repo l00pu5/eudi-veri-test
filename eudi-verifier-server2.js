@@ -1005,12 +1005,50 @@ app.get([
     authorization_servers: [`${ISSUER_CONFIG.publicUrl}/api/issuance`],
     credential_endpoint: `${issuerUrl}/credential`,
     nonce_endpoint: `${issuerUrl}/nonce`,
+    credential_response_encryption: {
+      alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+      enc_values_supported: ["A128GCM", "A256GCM"],
+      encryption_required: false
+    },
+    credential_request_encryption: {
+      alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+      enc_values_supported: ["A128GCM", "A256GCM"],
+      encryption_required: false,
+      jwks: {
+        keys: [
+          {
+            ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
+            kid: "issuer-enc-key-1",
+            alg: "ECDH-ES"
+          }
+        ]
+      }
+    },
     credential_configurations_supported: {
       "PID_SD_JWT_VC": {
         format: "dc+sd-jwt",
         scope: "PID_SD_JWT_VC",
         credential_signing_alg_values_supported: ["ES256"],
         cryptographic_binding_methods_supported: ["jwk"],
+        credential_response_encryption: {
+          alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+          enc_values_supported: ["A128GCM", "A256GCM"],
+          encryption_required: false
+        },
+        credential_request_encryption: {
+          alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+          enc_values_supported: ["A128GCM", "A256GCM"],
+          encryption_required: false,
+          jwks: {
+            keys: [
+              {
+                ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
+                kid: "issuer-enc-key-1",
+                alg: "ECDH-ES"
+              }
+            ]
+          }
+        },
         proof_types_supported: {
           "jwt": {
             "proof_signing_alg_values_supported": ["ES256"],
@@ -1037,6 +1075,25 @@ app.get([
         scope: "Employee_ID_SD_JWT_VC",
         credential_signing_alg_values_supported: ["ES256"],
         cryptographic_binding_methods_supported: ["jwk"],
+        credential_response_encryption: {
+          alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+          enc_values_supported: ["A128GCM", "A256GCM"],
+          encryption_required: false
+        },
+        credential_request_encryption: {
+          alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+          enc_values_supported: ["A128GCM", "A256GCM"],
+          encryption_required: false,
+          jwks: {
+            keys: [
+              {
+                ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
+                kid: "issuer-enc-key-1",
+                alg: "ECDH-ES"
+              }
+            ]
+          }
+        },
         proof_types_supported: {
           "jwt": {
             "proof_signing_alg_values_supported": ["ES256"]
@@ -1087,6 +1144,25 @@ app.get([
         doctype: "org.iso.18013.5.1.mDL",
         credential_signing_alg_values_supported: ["ES256"],
         cryptographic_binding_methods_supported: ["jwk"],
+        credential_response_encryption: {
+          alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+          enc_values_supported: ["A128GCM", "A256GCM"],
+          encryption_required: false
+        },
+        credential_request_encryption: {
+          alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+          enc_values_supported: ["A128GCM", "A256GCM"],
+          encryption_required: false,
+          jwks: {
+            keys: [
+              {
+                ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
+                kid: "issuer-enc-key-1",
+                alg: "ECDH-ES"
+              }
+            ]
+          }
+        },
         proof_types_supported: {
           "jwt": {
             "proof_signing_alg_values_supported": ["ES256"]
@@ -1195,7 +1271,26 @@ app.get([
     grant_types_supported: ["authorization_code", "urn:ietf:params:oauth:grant-type:pre-authorized_code"],
     response_types_supported: ["code"],
     token_endpoint_auth_methods_supported: ["none", "client_secret_post", "attest_jwt_client_auth"],
-    dpop_signing_alg_values_supported: ["ES256", "RS256"]
+    dpop_signing_alg_values_supported: ["ES256", "RS256"],
+    credential_response_encryption: {
+      alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+      enc_values_supported: ["A128GCM", "A256GCM"],
+      encryption_required: false
+    },
+    credential_request_encryption: {
+      alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
+      enc_values_supported: ["A128GCM", "A256GCM"],
+      encryption_required: false,
+      jwks: {
+        keys: [
+          {
+            ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
+            kid: "issuer-enc-key-1",
+            alg: "ECDH-ES"
+          }
+        ]
+      }
+    }
   });
 });
 
