@@ -5,7 +5,8 @@
   --text-secondary: #475569;
   --text-muted: #94a3b8;
   --border-color: #e2e8f0;
-  --brand-color: #004494; /* Official EU Trust Blue */
+  --brand-color: #004494;
+  /* Official EU Trust Blue */
   --brand-hover: #003380;
   --brand-light: rgba(0, 68, 148, 0.08);
   --success-color: #10b981;
@@ -15,9 +16,7 @@
   --indigo-color: #6366f1;
   --pink-color: #ec4899;
   --rose-color: #f43f5e;
-  --font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 body {
@@ -76,6 +75,7 @@ header {
 }
 
 @keyframes ping {
+
   75%,
   100% {
     transform: scale(2);
@@ -127,15 +127,17 @@ main {
   main {
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
+
   .col-span-5 {
     grid-column: span 5 / span 5;
   }
+
   .col-span-7 {
     grid-column: span 7 / span 7;
   }
 }
 
-.space-y-6 > * + * {
+.space-y-6>*+* {
   margin-top: 1.5rem;
 }
 
@@ -145,9 +147,7 @@ main {
   border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 1.5rem;
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.05),
-    0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
   position: relative;
   overflow: hidden;
 }
@@ -496,19 +496,11 @@ main {
 }
 
 .credential-header.pid-style {
-  background: linear-gradient(
-    135deg,
-    var(--brand-color) 0%,
-    var(--indigo-color) 100%
-  );
+  background: linear-gradient(135deg, var(--brand-color) 0%, var(--indigo-color) 100%);
 }
 
 .credential-header.mdoc-style {
-  background: linear-gradient(
-    135deg,
-    var(--pink-color) 0%,
-    var(--rose-color) 100%
-  );
+  background: linear-gradient(135deg, var(--pink-color) 0%, var(--rose-color) 100%);
 }
 
 .credential-header-left {
@@ -568,6 +560,7 @@ main {
   .claims-grid {
     grid-template-columns: 1fr 1fr;
   }
+
   .claims-right-col {
     border-top: none !important;
     border-left: 1px solid var(--border-color);
@@ -831,6 +824,7 @@ footer {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -871,7 +865,7 @@ footer {
 }
 
 .tab-btn.active::after {
-  content: "";
+  content: '';
   position: absolute;
   bottom: -2px;
   left: 0;
@@ -903,6 +897,7 @@ footer {
   .form-row.grid-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
   .form-row.grid-3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
