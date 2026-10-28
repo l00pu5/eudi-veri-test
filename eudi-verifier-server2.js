@@ -1019,7 +1019,8 @@ app.get([
           {
             ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
             kid: "issuer-enc-key-1",
-            alg: "ECDH-ES"
+            alg: "ECDH-ES",
+            use: "enc"
           }
         ]
       }
@@ -1044,7 +1045,8 @@ app.get([
               {
                 ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
                 kid: "issuer-enc-key-1",
-                alg: "ECDH-ES"
+                alg: "ECDH-ES",
+                use: "enc"
               }
             ]
           }
@@ -1089,7 +1091,8 @@ app.get([
               {
                 ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
                 kid: "issuer-enc-key-1",
-                alg: "ECDH-ES"
+                alg: "ECDH-ES",
+                use: "enc"
               }
             ]
           }
@@ -1158,7 +1161,8 @@ app.get([
               {
                 ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
                 kid: "issuer-enc-key-1",
-                alg: "ECDH-ES"
+                alg: "ECDH-ES",
+                use: "enc"
               }
             ]
           }
@@ -1286,7 +1290,8 @@ app.get([
           {
             ...demoIssuerKeys.publicKey.export({ format: "jwk" }),
             kid: "issuer-enc-key-1",
-            alg: "ECDH-ES"
+            alg: "ECDH-ES",
+            use: "enc"
           }
         ]
       }
