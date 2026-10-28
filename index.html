@@ -990,18 +990,16 @@
 
                 <!-- TAB 2: ISSUANCE CONTENT -->
                 <div id="tab-content-issuance" class="tab-content">
-                    <h2 class="card-title" id="issuance-title">Belege ausstellen (OpenID4VCI)</h2>
+                    <h2 class="card-title" id="issuance-title">Mitarbeiter-Ausweis ausstellen (OpenID4VCI EAA)</h2>
                     <p class="card-desc" id="issuance-desc">
-                        Definieren Sie hier Ihre benutzerdefinierten Nachweisdaten und Gültigkeitsdauer. Klicken Sie dann auf Angebot erzeugen, um den Credential Offer QR-Code anzuzeigen.
+                        Erzeugen Sie hier ein digitales Mitarbeiter-Ausweis (EAA) Angebot für die EUDI-Wallet via OpenID4VCI.
                     </p>
 
                     <!-- Nachweistyp Dropdown -->
                     <div class="form-group" style="margin-bottom: 1.25rem;">
                         <label class="form-label" for="iss-credential-type">Nachweistyp (Credential Type)</label>
-                        <select class="form-input" id="iss-credential-type" onchange="toggleIssuanceFields()" style="border: 2px solid var(--brand-color); font-weight: bold;">
-                            <option value="dc+sd-jwt">Personalausweis (PID / SD-JWT VC)</option>
-                            <option value="employee_sd_jwt">Mitarbeiter-Ausweis (Employee ID / SD-JWT VC)</option>
-                            <option value="mso_mdoc">Führerschein (mDL / ISO mdoc)</option>
+                        <select class="form-input" id="iss-credential-type" onchange="toggleIssuanceFields()" style="border: 2px solid var(--indigo-color); font-weight: bold;">
+                            <option value="employee_sd_jwt" selected>Mitarbeiter-Ausweis (Employee ID / SD-JWT VC)</option>
                         </select>
                     </div>
                     
@@ -1028,7 +1026,7 @@
                     </div>
 
                     <!-- PID-Only Fields -->
-                    <div id="iss-pid-only-fields" style="display: block;">
+                    <div id="iss-pid-only-fields" style="display: none;">
                         <div class="form-row grid-2">
                             <div class="form-group">
                                 <label class="form-label" for="iss-nationalities">Staatsangehörigkeit</label>
@@ -1053,7 +1051,7 @@
                     </div>
 
                     <!-- Employee-Only Fields -->
-                    <div id="iss-employee-only-fields" style="display: none; margin-bottom: 1.25rem; background-color: #f1f5f9; padding: 1rem; border-radius: 0.75rem; border: 1px dashed var(--indigo-color);">
+                    <div id="iss-employee-only-fields" style="display: block; margin-bottom: 1.25rem; background-color: #f1f5f9; padding: 1rem; border-radius: 0.75rem; border: 1px dashed var(--indigo-color);">
                         <div class="form-row grid-3">
                             <div class="form-group">
                                 <label class="form-label" for="iss-employee-id" style="color: var(--indigo-color);">Mitarbeiter-ID</label>
@@ -1081,7 +1079,7 @@
                     <div class="form-row grid-2" style="margin-top: 0.5rem; align-items: end;">
                         <div class="form-group">
                             <label class="form-label" for="iss-validity">Gültigkeit (Tage)</label>
-                            <input class="form-input" type="number" id="iss-validity" value="90">
+                            <input class="form-input" type="number" id="iss-validity" value="365">
                         </div>
                         <div class="form-group" style="justify-content: flex-end;">
                             <button id="btn-initiate-issuance" onclick="startIssuance()" class="btn-primary">
@@ -1455,6 +1453,7 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             loadScenarios();
+            toggleIssuanceFields();
         });
 
 
@@ -1481,7 +1480,7 @@
         function startIssuance() {
             document.getElementById('btn-initiate-issuance').disabled = true;
             document.getElementById('status-container').classList.remove('hidden');
-            document.getElementById('status-text').innerText = "Erstelle Ausweis-Angebot...";
+            document.getElementById('status-text').innerText = "Erstelle Mitarbeiter-Ausweis Angebot (OpenID4VCI)...";
             document.getElementById('qr-container').classList.add('hidden');
 
             const type = document.getElementById('iss-credential-type').value;
@@ -1538,7 +1537,7 @@
                     document.getElementById('qr-text').innerText = data.credentialOfferUrl;
                     
                     // Session ID anzeigen
-                    document.getElementById('session-title-label').innerText = "Ausstellungs-Session ID";
+                    document.getElementById('session-title-label').innerText = "Mitarbeiter-Ausweis Session ID";
                     document.getElementById('session-id-display').innerText = data.sessionId;
                     
                     document.getElementById('qr-container').classList.remove('hidden');
@@ -1552,7 +1551,7 @@
                                 if (statusData.status === 'SUCCESS') {
                                     clearInterval(pollInterval);
                                     document.getElementById('status-container').classList.add('hidden');
-                                    alert("Ausweis erfolgreich an Wallet ausgestellt!");
+                                    alert("Mitarbeiter-Ausweis (EAA) erfolgreich an Wallet ausgestellt!");
                                     resetUI();
                                 } else if (statusData.status === 'FAILED') {
                                     clearInterval(pollInterval);
@@ -1729,8 +1728,8 @@
                     credentialTitle.innerText = "Mitarbeiter-Ausweis";
                     document.getElementById('claim-given_name').innerText = claims.given_name || 'N/A';
                     document.getElementById('claim-family_name').innerText = claims.family_name || 'N/A';
-                    document.getElementById('claim-birthdate').innerText = claims.employee_id || claims.birthdate || 'N/A'; 
-                    document.getElementById('claim-is_over_18').innerText = claims.role || 'N/A';
+                    document.getElementById('claim-birthdate').innerText = claims.employee_id ? claims.employee_id : (claims.birthdate || 'N/A');
+                    document.getElementById('claim-is_over_18').innerText = claims.role ?  : 'N/A';
                     document.getElementById('claim-nationalities').innerText = claims.department || 'N/A';
                 } else {
                     document.getElementById('claim-given_name').innerText = claims.given_name || 'N/A';
