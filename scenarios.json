@@ -64,7 +64,7 @@
             "id": "pid_mdoc_credential",
             "format": "mso_mdoc",
             "meta": {
-              "doc_type": "eu.europa.ec.eudi.pid.1"
+              "doctype_value": "eu.europa.ec.eudi.pid.1"
             },
             "claims": [
               {
