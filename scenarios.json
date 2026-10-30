@@ -54,9 +54,9 @@
       "name": "EUDI PID (ISO mdoc) - Altersnachweis (18+)",
       "description": "Fordert Vorname, Nachname und die Bestätigung 'age_over_18' aus der PID im ISO mdoc-Format an.",
       "certs": {
-        "accessCertificate": "certs/access_certificate.pem",
-        "accessPrivateKey": "certs/access_certificate_key.pem",
-        "registrationCertificate": "certs/registration_certificate.jwt"
+        "accessCertificate": "certs/access_certificate_mdoc.pem",
+        "accessPrivateKey": "certs/access_certificate_key_mdoc.pem",
+        "registrationCertificate": "certs/registration_certificate_mdoc.jwt"
       },
       "dcqlQuery": {
         "credentials": [
@@ -88,7 +88,16 @@
             ]
           }
         ]
-      }
+      },
+      "credential_sets": [
+        {
+          "options": [
+            [
+              "pid_mdoc_credential"
+            ]
+          ]
+        }
+      ]
     },
     "pid_full_identity": {
       "name": "DE National PID - Vollständige Identität",
