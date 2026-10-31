@@ -36,6 +36,8 @@ app.use((req, res, next) => {
 });
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+// logging middleware
 app.use(log_middleware);
 
 // Statische Dateien (wie index.html und andere Assets) aus dem aktuellen Verzeichnis servieren
@@ -559,7 +561,7 @@ function decryptJweResponse(jweString, privateKeyPem) {
 // =============================================================================
 
 app.get('/api/scenarios', (req, res) => {
-  console.log("ROUTE: GET /api/scenarios");
+  // console.log("ROUTE: GET /api/scenarios");
   res.json({
     success: true,
     activeScenarioId: activeScenarioId,
@@ -570,7 +572,7 @@ app.get('/api/scenarios', (req, res) => {
 });
 
 app.get('/api/scenario', (req, res) => {
-  console.log("ROUTE: GET /api/scenario");
+  // console.log("ROUTE: GET /api/scenario");
   res.json({
     success: true,
     scenarioId: activeScenarioId,
@@ -582,7 +584,7 @@ app.get('/api/scenario', (req, res) => {
 });
 
 app.post('/api/scenario/select', (req, res) => {
-  console.log("ROUTE: POST /api/scenario/select");
+  // console.log("ROUTE: POST /api/scenario/select");
   const { scenarioId } = req.body || {};
   if (switchScenario(scenarioId)) {
     res.json({
@@ -597,7 +599,7 @@ app.post('/api/scenario/select', (req, res) => {
 });
 
 app.all('/api/presentation/initiate', (req, res) => {
-  console.log("ROUTE: ALL /api/presentation/initiate");
+  // console.log("ROUTE: ALL /api/presentation/initiate");
   const reqScenario = req.query.scenario || (req.body && req.body.scenario);
   if (reqScenario && allScenariosMap[reqScenario]) {
     switchScenario(reqScenario);
@@ -643,7 +645,7 @@ app.all('/api/presentation/initiate', (req, res) => {
 });
 
 app.get('/api/presentation/request-jwt', (req, res) => {
-  console.log("ROUTE: GET /api/presentation/request-jwt");
+  // console.log("ROUTE: GET /api/presentation/request-jwt");
   const sessionId = req.query.sid;
 
   if (!sessionId || !transactionStore.has(sessionId)) {
@@ -724,7 +726,7 @@ app.get('/api/presentation/request-jwt', (req, res) => {
 });
 
 app.post('/api/presentation/callback', async (req, res) => {
-  console.log("ROUTE: POST /api/presentation/callback");
+  // console.log("ROUTE: POST /api/presentation/callback");
   let { vp_token, state, wia_token, response, error, error_description } = req.body || {};
 
   console.log(`[RP Server] direct_post Callback erhalten.`);
@@ -879,7 +881,7 @@ app.post('/api/presentation/callback', async (req, res) => {
 });
 
 app.get('/api/presentation/status', (req, res) => {
-  console.log("ROUTE: GET /api/presentation/status");
+  // console.log("ROUTE: GET /api/presentation/status");
   const sessionId = req.query.sid;
 
   if (!sessionId || !transactionStore.has(sessionId)) {
@@ -918,7 +920,7 @@ app.get('/api/presentation/status', (req, res) => {
 // =============================================================================
 
 app.get('/api/issuance/session-info', (req, res) => {
-  console.log("ROUTE: GET /api/issuance/session-info");
+  // console.log("ROUTE: GET /api/issuance/session-info");
   const sessionId = req.query.sid;
   if (!sessionId || !transactionStore.has(sessionId)) {
     return res.status(404).json({ error: 'Sitzung nicht gefunden' });
@@ -932,7 +934,7 @@ app.get('/api/issuance/session-info', (req, res) => {
 });
 
 app.all('/api/issuance/initiate', (req, res) => {
-  console.log("ROUTE: ALL /api/issuance/initiate");
+  // console.log("ROUTE: ALL /api/issuance/initiate");
   const sessionId = 'session_iss_' + crypto.randomBytes(12).toString('hex');
   const wiaChallenge = 'challenge_iss_' + crypto.randomBytes(16).toString('hex');
 
@@ -995,7 +997,7 @@ app.all('/api/issuance/initiate', (req, res) => {
 
 // Route zur Bereitstellung von Firmenlogos und Visuals für Credential Display Metadata
 app.get('/assets/company_logo.png', (req, res) => {
-  console.log("ROUTE: GET /assets/company_logo.png");
+  // console.log("ROUTE: GET /assets/company_logo.png");
   const candidatePaths = [
     path.join(__dirname, 'company_logo.png'),
     path.join(__dirname, 'assets', 'company_logo.png')
@@ -1013,7 +1015,7 @@ app.get([
   '/.well-known/openid-credential-issuer/api/issuance',
   '/api/issuance/.well-known/openid-credential-issuer'
 ], (req, res) => {
-  console.log(`ROUTE: GET ${req.baseUrl}`);
+  // console.log(`ROUTE: GET ${req.baseUrl}`);
   const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
   const metadata = {
     credential_issuer: issuerUrl,
@@ -1189,7 +1191,7 @@ app.get([
   '/api/issuance/.well-known/openid-configuration',
   '/api/issuance/.well-known/oauth-authorization-server'
 ], (req, res) => {
-  console.log(`ROUTE: GET ${req.baseUrl}`);
+  // console.log(`ROUTE: GET ${req.baseUrl}`);
   const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
@@ -1227,7 +1229,7 @@ app.get([
 });
 
 app.post('/api/issuance/nonce', (req, res) => {
-  console.log("ROUTE: POST /api/issuance/none");
+  // console.log("ROUTE: POST /api/issuance/none");
   console.log('[Issuer Server] Nonce Request erhalten.');
   const nonces = pidIssuer.generateNonceResponse();
   res.setHeader('Content-Type', 'application/json');
@@ -1236,7 +1238,7 @@ app.post('/api/issuance/nonce', (req, res) => {
 });
 
 app.post('/api/issuance/token', (req, res) => {
-  console.log("ROUTE: POST /api/issuance/token");
+  // console.log("ROUTE: POST /api/issuance/token");
   console.log('[Issuer Server] Token Request erhalten.');
 
   const { code, code_verifier, client_assertion, client_assertion_pop, wia_challenge_sid } = req.body;
@@ -1300,7 +1302,7 @@ app.post('/api/issuance/token', (req, res) => {
 });
 
 app.post('/api/issuance/credential', (req, res) => {
-  console.log("ROUTE: POST /api/issuance/credential");
+  // console.log("ROUTE: POST /api/issuance/credential");
   console.log('[Issuer Server] Credential Request erhalten.');
 
   const authHeader = req.headers['authorization'];
