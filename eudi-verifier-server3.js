@@ -18,7 +18,7 @@ const path = require('path');
 const dotenv = require("dotenv");
 const { EUDIVerifier } = require('./eudi-verifier-helper.js');
 const { EUDIPIDIssuerVerifier } = require('./eudi-issuer-verifier.js');
-const { Logger } = require("./util/logger.js");
+const { Logger, log_middleware } = require("./util/logger.js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +36,7 @@ app.use((req, res, next) => {
 });
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(log_middleware);
 
 // Statische Dateien (wie index.html und andere Assets) aus dem aktuellen Verzeichnis servieren
 app.use(express.static(__dirname));

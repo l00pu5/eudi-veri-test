@@ -85,4 +85,9 @@ class Logger {
   }
 }
 
-module.exports = { Logger };
+function log_middleware(req, res, next) {
+  console.log(`ROUTE: ${req.method} ${req.path}`);
+  next();
+}
+
+module.exports = { Logger, log_middleware };
