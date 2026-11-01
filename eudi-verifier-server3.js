@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 3000;
 // read .env
 dotenv.config();
 
-// Middleware konfigurieren
+// configure middleware
 app.use(cors({ origin: true, credentials: true }));
 app.use((req, res, next) => {
   res.setHeader('ngrok-skip-browser-warning', 'true');
@@ -40,23 +40,23 @@ app.use(bodyParser.json());
 // logging middleware
 app.use(log_middleware);
 
-// Statische Dateien (wie index.html und andere Assets) aus dem aktuellen Verzeichnis servieren
+// serve static filed from current directory
 app.use(express.static(__dirname));
 
-// Route für das Haupt-Frontend (index.html) an der Server-Wurzel
+// route for serving main frontend
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Session-Management zur Speicherung von Nonce und Verifizierungsergebnissen
+// session management for storing nonces + verification results
 app.use(session({
   secret: crypto.randomBytes(32).toString('hex'),
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false, httpOnly: true, maxAge: 300000 } // 5 Minuten Gültigkeit
+  cookie: { secure: false, httpOnly: true, maxAge: 300000 } // validity perdiod = 5min
 }));
 
-// In-Memory Speicher für transienten Status-Abgleich (Alternative zu Redis im Produktivbetrieb)
+// in-memory store for transient status sync (Redis "lite")
 const transactionStore = new Map();
 const accessTokenStore = new Map(); // token -> { dpopKey, claims }
 
@@ -92,7 +92,7 @@ console.log("ℹ️ instantiating logger");
 const logger = new Logger(debugLogging, logLevel);
 
 // =============================================================================
-// SZENARIEN- & ZERTIFIKATS-VERWALTUNG (scenarios.json & CLI-PARAMETER)
+// SCENARIO & CERTIFICATE MANAGEMENT (scenarios.json & CLI PARAMS)
 // =============================================================================
 
 let allScenariosMap = {};
@@ -125,19 +125,19 @@ function getRequestedScenarioId() {
 }
 
 function loadScenarioAndCertificates() {
-  console.log('[Scenario Manager v29] Lade Szenarien aus scenarios.json...');
+  console.log('[SCEAN] loading scenarios from file: scenarios.json...');
   const scenariosPath = path.join(__dirname, 'scenarios.json');
   let scenariosData = null;
 
   if (fs.existsSync(scenariosPath)) {
     try {
       scenariosData = JSON.parse(fs.readFileSync(scenariosPath, 'utf8'));
-      console.log('[Scenario Manager v29] scenarios.json erfolgreich eingelesen.');
+      console.log('[SCEN] scenarios.json has been parsed successfully');
     } catch (err) {
-      console.error('[Scenario Manager v29] Fehler beim Lesen von scenarios.json:', err.message);
+      console.error('[SCEN] error while parsing scenarios.json:', err.message);
     }
   } else {
-    console.warn('[Scenario Manager v29] scenarios.json nicht gefunden. Verwende integrierte Fallback-Szenarien.');
+    console.warn('[SCEN] scenarios.json not found; falling back to hard-coded default scenario definition...');
   }
 
   const scenarios = scenariosData?.scenarios || {
@@ -176,32 +176,33 @@ function loadScenarioAndCertificates() {
 
   if (requestedId && scenarios[requestedId]) {
     activeScenarioId = requestedId;
-    console.log(`[Scenario Manager v29] Ausgewähltes Szenario via CLI/ENV: "${activeScenarioId}"`);
+    console.log(`[SCEN] selected scenario via CLI/ENV: "${activeScenarioId}"`);
   } else {
     if (requestedId) {
-      console.warn(`[Scenario Manager v29] WARNUNG: Szenario-ID "${requestedId}" nicht in scenarios.json gefunden! Nutze Default.`);
+      console.warn(`[SCEN] scenario ID "${requestedId}" not found in scenarios.json; falling back to pre-defined default...`);
     }
     activeScenarioId = defaultId;
-    console.log(`[Scenario Manager v29] Ausgewähltes Default-Szenario: "${activeScenarioId}"`);
+    console.log(`[SCEN] selected default scenario: "${activeScenarioId}"`);
   }
 
   allScenariosMap = scenarios;
   activeScenario = scenarios[activeScenarioId];
   activeDcqlQuery = activeScenario.dcqlQuery;
 
-  console.log(`\n================================================================`);
-  console.log(`  AKTIVES SZENARIO: [ ${activeScenarioId} ]`);
-  console.log(`  Name        : ${activeScenario.name || 'Unbenannt'}`);
-  console.log(`  Description : ${activeScenario.description || 'Keine'}`);
-  console.log(`================================================================\n`);
+  console.log(`================================================================`);
+  console.log(`  ACTIVE SCNEARIO  : [ ${activeScenarioId} ]`);
+  console.log(`  Name             : ${activeScenario.name || 'Unknown'}`);
+  console.log(`  Description      : ${activeScenario.description || 'None'}`);
+  console.log(`================================================================`);
 
-  console.log('[Scenario Manager v29] Verfügbare Szenarien in scenarios.json:');
+  console.log('[SCEN] available scenarios in scenarios.json:');
   Object.keys(scenarios).forEach(id => {
-    const mark = id === activeScenarioId ? ' -> [AKTIV]' : '          ';
+    const mark = id === activeScenarioId ? ' -> [ACTIVE]' : '            ';
     console.log(`  ${mark} ${id.padEnd(22)} : ${scenarios[id].name || ''}`);
   });
   console.log('');
 
+  console.log("[SCEN] loading certificates for selected scenario...");
   loadCertificatesForScenario(activeScenario.certs);
 }
 
@@ -225,7 +226,7 @@ function loadCertificatesForScenario(certsConfig = {}) {
   try {
     if (fs.existsSync(accessKeyPath)) {
       accessCertPrivateKeyPem = fs.readFileSync(accessKeyPath, 'utf8');
-      console.log('[Cert Loader v29] Private Key geladen aus:', path.basename(accessKeyPath));
+      console.log('[CERT] private key loaded from:', path.basename(accessKeyPath));
     }
 
     if (fs.existsSync(accessCertPath) && accessCertPrivateKeyPem) {
@@ -233,10 +234,10 @@ function loadCertificatesForScenario(certsConfig = {}) {
       const x509 = new crypto.X509Certificate(rawContent);
       accessCertDerBuffer = x509.raw;
       loadedAccess = true;
-      console.log('[Cert Loader v29] Access Certificate geladen aus:', path.basename(accessCertPath));
+      console.log('[CERT] access certificate loaded from:', path.basename(accessCertPath));
     }
   } catch (e) {
-    console.warn('[Cert Loader v29] Warnung beim Laden des Access Certificates:', e.message);
+    console.warn('[CERT] error while loading the access certificate:', e.message);
   }
 
   let registrationJwtString = null;
@@ -245,18 +246,18 @@ function loadCertificatesForScenario(certsConfig = {}) {
       const content = fs.readFileSync(regCertPath, 'utf8').trim();
       if (content.startsWith('eyJ')) {
         registrationJwtString = content;
-        console.log('[Cert Loader v29] Registration Certificate (JWT) geladen aus:', path.basename(regCertPath));
+        console.log('[CERT] registration certficate (JWT) loaded from:', path.basename(regCertPath));
       } else {
         registrationCertDerBuffer = fs.readFileSync(regCertPath);
-        console.log('[Cert Loader v29] Registration Certificate (DER) geladen aus:', path.basename(regCertPath));
+        console.log('[CERT] registration certificate (DER) loaded from:', path.basename(regCertPath));
       }
     }
   } catch (e) {
-    console.warn('[Cert Loader v29] Warnung beim Laden des Registration Certificates:', e.message);
+    console.warn('[CERT] error while loading the registration certificate:', e.message);
   }
 
   if (!loadedAccess) {
-    console.log('[Cert Loader v29] Synthetisiere Access Certificate & Key (Demo/Fallback)...');
+    console.log('[CERT] synthesizing access certificate & private key (demo / fallback)...');
     const keyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
     accessCertPrivateKeyPem = keyPair.privateKey.export({ type: 'sec1', format: 'pem' });
     accessCertDerBuffer = Buffer.concat([Buffer.from([0x30, 0x82, 0x01, 0x20]), crypto.randomBytes(284)]);
@@ -264,7 +265,7 @@ function loadCertificatesForScenario(certsConfig = {}) {
 
   const sha256Hash = crypto.createHash('sha256').update(accessCertDerBuffer).digest();
   clientIdX509Hash = 'x509_hash:' + sha256Hash.toString('base64url');
-  console.log('[Cert Loader v29] HAIP client_id:', clientIdX509Hash);
+  console.log('[CERT] HAIP client_id / x509 hash:', clientIdX509Hash);
 
   x5cHeaderArray = [accessCertDerBuffer.toString('base64')];
 
@@ -288,10 +289,9 @@ function loadCertificatesForScenario(certsConfig = {}) {
   }
 }
 
-
 function switchScenario(scenarioId) {
   if (!scenarioId || !allScenariosMap[scenarioId]) {
-    console.warn(`[Scenario Manager v27] Szenario-ID "${scenarioId}" nicht gefunden.`);
+    console.warn(`[SCEN] scenario ID "${scenarioId}" not found`);
     return false;
   }
   activeScenarioId = scenarioId;
@@ -307,22 +307,22 @@ function switchScenario(scenarioId) {
 
 loadScenarioAndCertificates();
 
-// Konfiguration der Relying Party (Präsentation)
+// RP configuration (presentation)
 const RP_CONFIG = {
   clientId: clientIdX509Hash || 'x509_hash:demo',
-  publicUrl: process.env.PUBLIC_URL || `http://localhost:${PORT}`, // Dynamische Auflösung
+  publicUrl: process.env.PUBLIC_URL || `http://localhost:${PORT}`,
   trustedIssuerKeys: [],
   trustedWalletKeys: []
 };
 
-// Konfiguration des Credential Issuers (Ausstellung)
+// issuer configuration
 const ISSUER_CONFIG = {
-  issuerId: process.env.ISSUER_ID || `http://localhost:${PORT}/api/issuance`, // Dynamischer IssuerId passend zum Server-Host
+  issuerId: process.env.ISSUER_ID || `http://localhost:${PORT}/api/issuance`, // dynamic IssuerId matching with the server host
   publicUrl: process.env.PUBLIC_URL || `http://localhost:${PORT}`,
   trustedWalletKeys: []
 };
 
-// Kryptografische Schlüssel für Demo-Betrieb generieren (simuliert Trust-Store / PKI)
+// crypto keys for demo purposes (simulated trust store / PKI)
 let demoIssuerKeys, demoWalletKeys, rpSigningKeys;
 let rpSigningCertBase64 = "";
 
@@ -343,9 +343,9 @@ try {
   rpSigningCertBase64 = certPem
     .replace(/-----\s*(BEGIN|END)\s+CERTIFICATE\s*-----/g, '')
     .replace(/[\r\n]/g, '');
-  console.log('[Server Setup] RP-Signing-Zertifikat geladen und x5c-Wert extrahiert.');
+  console.log('[SRV] RP signing certificate has been loaded; x5c value has been extracted');
 } catch (err) {
-  console.error('Fehler bei der RP-Schlüssel/Cert-Ladung:', err);
+  console.error('Error while generating RP keys & loading certs:', err);
   rpSigningKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
 }
 
@@ -353,7 +353,7 @@ try {
   demoIssuerKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
   demoWalletKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
 
-  // Trust-Stores befüllen
+  // populate trust store
   RP_CONFIG.trustedIssuerKeys.push(demoIssuerKeys.publicKey.export({ type: 'spki', format: 'pem' }));
   RP_CONFIG.trustedWalletKeys.push(demoWalletKeys.publicKey.export({ type: 'spki', format: 'pem' }));
   ISSUER_CONFIG.trustedWalletKeys.push(demoWalletKeys.publicKey.export({ type: 'spki', format: 'pem' }));
@@ -368,12 +368,12 @@ try {
       publicKey: demoIssuerKeys.publicKey.export({ type: 'spki', format: 'pem' })
     }
   }, null, 2));
-  console.log('[Server Setup] Demo-Keys erfolgreich nach ./demo-keys.json exportiert.');
+  console.log('[ARV] demo keys exported to ./demo-keys.json');
 } catch (e) {
-  console.error('Fehler bei der Schlüsselgenerierung:', e);
+  console.error('Error during key generation:', e);
 }
 
-// Instanziierung des EUDI PID Providers (Aussteller)
+// instantiation issuer verifier
 const pidIssuer = new EUDIPIDIssuerVerifier({
   issuerId: ISSUER_CONFIG.issuerId,
   issuerPrivateKeyPem: demoIssuerKeys.privateKey.export({ type: 'sec1', format: 'pem' }),
@@ -382,7 +382,7 @@ const pidIssuer = new EUDIPIDIssuerVerifier({
 });
 
 // =============================================================================
-// KRYPTOGRAFISCHE HILFSFUNKTIONEN FÜR JWE-ENTSCHLÜSSELUNG (ECDH-ES + A128GCM/A256GCM)
+// CRYTO AUX FUNCTIONS FOR JWE DECRYPTION (ECDH-ES + A128GCM/A256GCM)
 // =============================================================================
 
 function deriveConcatKDF(sharedSecret, keyLengthBytes, encAlg, apuB64, apvB64) {
@@ -423,7 +423,7 @@ function deriveConcatKDF(sharedSecret, keyLengthBytes, encAlg, apuB64, apvB64) {
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ABHÄNGIGKEITSFREIER LIGHTWEIGHT CBOR-CODEC (GEMÄß RFC 8949)
+// LIGHTWEIGHT CBOR CODEC (RFC 8949)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function encodeTypeAndLength(type, length) {
@@ -463,7 +463,7 @@ function encodeCBOR(val) {
         return encodeTypeAndLength(1, -val - 1);
       }
     } else {
-      throw new Error("Gleitkommazahlen werden in dieser Krypto-Ebene nicht unterstützt.");
+      throw new Error("Floating point numbers are not supported on this crypto layer");
     }
   }
   if (typeof val === 'string') {
@@ -486,7 +486,7 @@ function encodeCBOR(val) {
     }
     return Buffer.concat([encodeTypeAndLength(5, keys.length), ...encodedPairs]);
   }
-  throw new Error("Nicht unterstützter CBOR-Datentyp: " + typeof val);
+  throw new Error("Unsupported CBOR data type: " + typeof val);
 }
 
 function base64url(strOrBuffer) {
@@ -497,20 +497,20 @@ function base64url(strOrBuffer) {
 function decryptJweResponse(jweString, privateKeyPem) {
   const parts = jweString.split('.');
   if (parts.length !== 5) {
-    throw new Error('Ungültiges JWE-Kompaktformat. Erwartet werden 5 Segmente.');
+    throw new Error('Invalid JWE format; 5 segments were expected');
   }
 
   const [protectedHeaderB64, encryptedKeyB64, ivB64, ciphertextB64, tagB64] = parts;
 
   const header = JSON.parse(Buffer.from(protectedHeaderB64, 'base64url').toString('utf8'));
   if (header.alg !== 'ECDH-ES') {
-    throw new Error(`Nicht unterstützter JWE-Algorithmus: ${header.alg}`);
+    throw new Error(`Unsupported JWE algorithm: ${header.alg}`);
   }
   if (header.enc !== 'A128GCM' && header.enc !== 'A256GCM') {
-    throw new Error(`Nicht unterstützte symmetrische Verschlüsselung: ${header.enc}`);
+    throw new Error(`Unsupported symmetric encryption: ${header.enc}`);
   }
   if (!header.epk) {
-    throw new Error('Ephemeral Public Key (epk) fehlt im JWE-Header.');
+    throw new Error('Ephemeral public key (epk) missing from JWE header');
   }
 
   const walletEphemeralPublicKey = crypto.createPublicKey({
@@ -557,7 +557,7 @@ function decryptJweResponse(jweString, privateKeyPem) {
 }
 
 // =============================================================================
-// TEIL 1: SPREAD-ENDPOINTS FÜR PRÄSENTATION (OPENID4VP)
+// PRESENTATION ENDPOINTS (OPENID4VP)
 // =============================================================================
 
 app.get('/api/scenarios', (req, res) => {
@@ -594,7 +594,7 @@ app.post('/api/scenario/select', (req, res) => {
       clientId: RP_CONFIG.clientId
     });
   } else {
-    res.status(400).json({ success: false, error: `Unbekanntes Szenario: ${scenarioId}` });
+    res.status(400).json({ success: false, error: `Unknown scenario: ${scenarioId}` });
   }
 });
 
@@ -613,7 +613,7 @@ app.all('/api/presentation/initiate', (req, res) => {
     privateKeyPem = encKeyPair.privateKey.export({ type: 'sec1', format: 'pem' });
     publicKeyJwk = encKeyPair.publicKey.export({ format: 'jwk' });
   } catch (e) {
-    console.error('Fehler bei der Keypair-Generierung für JWE:', e);
+    console.error('Error during key pair generation for JWE:', e);
   }
 
   req.session.sessionId = sessionId;
@@ -634,7 +634,7 @@ app.all('/api/presentation/initiate', (req, res) => {
   const requestUri = `${RP_CONFIG.publicUrl}/api/presentation/request-jwt?sid=${sessionId}`;
   const qrCodeUrl = `openid4vp://?client_id=${encodeURIComponent(RP_CONFIG.clientId)}&request_uri=${encodeURIComponent(requestUri)}`;
 
-  console.log(`[RP Server] Session initiiert. ID: ${sessionId}, Erwartete Nonce: ${nonce}`);
+  console.log(`[RP] session initiated; ID: ${sessionId}, expected nonce: ${nonce}`);
 
   res.json({
     success: true,
@@ -649,7 +649,7 @@ app.get('/api/presentation/request-jwt', (req, res) => {
   const sessionId = req.query.sid;
 
   if (!sessionId || !transactionStore.has(sessionId)) {
-    return res.status(400).json({ error: 'Ungültige oder abgelaufene Transaktions-ID' });
+    return res.status(400).json({ error: 'Invalid or expired transaction ID' });
   }
 
   const tx = transactionStore.get(sessionId);
@@ -704,24 +704,24 @@ app.get('/api/presentation/request-jwt', (req, res) => {
   try {
     const tokenInput = `${Buffer.from(JSON.stringify(jwtHeader)).toString('base64url')}.${Buffer.from(JSON.stringify(requestPayload)).toString('base64url')}`;
 
-    // Nutze den zum x5c-Zertifikat passenden privaten Schlüssel (accessCertPrivateKeyPem)
+    // using private key matching the x5c cert (accessCertPrivateKeyPem)
     const signingKey = accessCertPrivateKeyPem || rpSigningKeys.privateKey;
 
-    // ES256 / JWS erfordert IEEE P1363 Enkodierung (64-Byte r||s Buffer)
+    // ES256 / JWS requires IEEE P1363 encoding (64 byte r||s Buffer)
     const signature = crypto.sign('SHA256', Buffer.from(tokenInput), {
       key: signingKey,
       dsaEncoding: 'ieee-p1363'
     });
     const signedJwt = `${tokenInput}.${signature.toString('base64url')}`;
 
-    console.log(`[RP Server] JAR-Request für Session ${sessionId} an Wallet ausgeliefert.`);
+    console.log(`[RP] JAR request for session ${sessionId} has been delivered to wallet`);
 
     res.setHeader('Content-Type', 'application/oauth-authz-req+jwt');
     res.setHeader('Cache-Control', 'no-store');
     res.send(signedJwt);
   } catch (err) {
-    console.error('JAR Signierungsfehler:', err);
-    res.status(500).json({ error: 'Kryptografischer Serverfehler beim Erzeugen des JAR' });
+    console.error('JAR signing error:', err);
+    res.status(500).json({ error: 'Cryptographic server error while generating the JAR' });
   }
 });
 
@@ -729,15 +729,15 @@ app.post('/api/presentation/callback', async (req, res) => {
   // console.log("ROUTE: POST /api/presentation/callback");
   let { vp_token, state, wia_token, response, error, error_description } = req.body || {};
 
-  console.log(`[RP Server] direct_post Callback erhalten.`);
+  console.log(`[RP] direct_post callback has been received`);
 
   if (error) {
-    console.error(`[RP Server] ❌ Wallet-Fehler erhalten: ${error} (${error_description || ''})`);
+    console.error(`[RP] ❌ Wallet error received: ${error} (${error_description || ''})`);
     const sessionState = state || req.query.sid;
     if (sessionState && transactionStore.has(sessionState)) {
       const tx = transactionStore.get(sessionState);
       tx.status = 'FAILED';
-      tx.errors = [`Wallet-Protokollfehler (${error}): ${error_description || 'Anfrage von Wallet abgelehnt'}`];
+      tx.errors = [`Wallet protocol error (${error}): ${error_description || 'Wallet request has been rejected'}`];
       transactionStore.set(sessionState, tx);
     }
     return res.status(200).json({ status: 'ACK' });
@@ -758,7 +758,7 @@ app.post('/api/presentation/callback', async (req, res) => {
 
   if (tokenToDecrypt && typeof tokenToDecrypt === 'string' && tokenToDecrypt.split('.').length === 5) {
     isEncrypted = true;
-    console.log('[RP Server] Kryptografischer JWE-Umschlag erkannt. Starte Entschlüsselung (direct_post.jwt)...');
+    console.log('[RP] JWE envelope has been detected; initiating decryption (direct_post.jwt)...');
 
     let assumedState = state || req.query.sid || req.query.state;
 
@@ -1386,11 +1386,11 @@ app.post('/api/issuance/credential', (req, res) => {
 
 // Starten des API-Servers
 app.listen(PORT, () => {
-  console.log(`\n=== EUDI WALLET INTEGRATED SERVER v34 (PRESENTATION & ISSUANCE) ===`);
+  console.log(`=== EUDI WALLET INTEGRATED SERVER v34 (PRESENTATION & ISSUANCE) ===`);
   console.log(`Server läuft lokal auf: http://localhost:${PORT}`);
   console.log(`Öffentliche RP-Identität (client_id): ${RP_CONFIG.clientId}`);
   console.log(`Öffentliche Issuer-Identität (issuer_id): ${ISSUER_CONFIG.issuerId}`);
-  console.log(`Warte auf Wallet-Verbindungen (Präsentation und Ausstellung)...\n`);
+  console.log(`Warte auf Wallet-Verbindungen (Präsentation und Ausstellung)...`);
 });
 
 module.exports = app;
