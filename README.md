@@ -66,7 +66,7 @@ Sequence:
 3. **Cryptographic binding & CBOR encoding**: as soon as the wallet fetches the mdoc certificate, the token endpoint will link to this specific session. If mDL is selected, the server will encode the data via CBOR to a binary `DeviceResponse` structure and delivers it within a JWE envelope (i.e. encrypted). In case of a PID, an SD-JWT credential will be created.
 4. **Success indication**: as soon as the wallet has completed the issuance, the web frontend will take notice by ways of continuous status polling and will reflect the success status accordingly.
 
-##### ⚙️ API Interface: initiation of the dynamic issuance
+#### ⚙️ API Interface: initiation of the dynamic issuance
 
 ```javascript
 app.all('/api/issuance/initiate', (req, res) => {
@@ -351,6 +351,28 @@ node eudi-test-harness_demo.js --mode=1
 ```
 
 *Result*: the server will verifiy the cryptographic signatures and PoP(s). After execution, the script will provide a **runtime statistic** in the terminal.
+
+---
+
+## Launching the presentation validator
+
+### Option A: with deeplink 
+
+```bash
+node eudi-openid4vp-request-validator.js "openid4vp://?client\_id=https%3A%2F%2Fverifier.example.com&amp;request\_uri=https%3A%2F%2Fverifier.example.com%2Fapi%2Fpresentation%2Frequest-jwt%3Fsid%3Dsession\_123" 
+```
+
+### Option B: with request_uri
+
+```bash
+node eudi-openid4vp-request-validator.js "https://example.com" 
+```
+
+### Option C: with raw JWT (JWT-encoded authorization request object)
+
+```bash
+node eudi-openid4vp-request-validator.js "eyJhbGciOiJFUzI1NiIs..."
+```
 
 ---
 
