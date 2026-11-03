@@ -800,7 +800,9 @@ app.post('/api/presentation/callback', async (req, res) => {
           tx.errors = [`Wallet-Protokollfehler (${decryptedPayload.error}): ${decryptedPayload.error_description || 'Anfrage abgelehnt'}`];
           transactionStore.set(state, tx);
         }
-        return res.status(200).json({ status: 'ACK' });
+        // return res.status(200).json({ status: 'ACK' });
+        // return res.status(200).json({ status: 'ACK', redirect_uri: "https://www.google.de" });
+        return res.status(200).json({ redirect_uri: "https://www.google.de" });
       }
       vp_token = decryptedPayload.vp_token;
       wia_token = decryptedPayload.wia_token || wia_token;
