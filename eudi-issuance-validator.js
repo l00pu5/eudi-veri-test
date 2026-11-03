@@ -12,7 +12,7 @@ const https = require('https');
 const http = require('http');
 const { URL } = require('url');
 
-// ANSI Color Codes für strukturierte Konsolenausgabe
+// ANSI color codes
 const colors = {
   reset: "\x1b[0m",
   bright: "\x1b[1m",
@@ -24,7 +24,7 @@ const colors = {
   cyan: "\x1b[36m"
 };
 
-const logHeader = (msg) => console.log(`\n${colors.bright}${colors.cyan}--- ${msg} ---${colors.reset}`);
+const logHeader = (msg) => console.log(`${colors.bright}${colors.cyan}--- ${msg} ---${colors.reset}`);
 const logSuccess = (msg) => console.log(`  ${colors.green}✓ ${msg}${colors.reset}`);
 const logWarn = (msg) => console.log(`  ${colors.yellow}⚠️  ${msg}${colors.reset}`);
 const logError = (msg) => console.log(`  ${colors.red}❌ ${msg}${colors.reset}`);
