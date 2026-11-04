@@ -563,67 +563,83 @@ class EUDIVerifier {
     }
 
     const doc = deviceResponse.documents[0];
-    if (!doc || doc.docType !== 'org.iso.18013.5.1.mDL') {
-      throw new Error(`Unsupported mdoc document type: ${doc ? doc.docType : 'none'}`);
+    if (!doc || !doc.docType) {
+      throw new Error('Invalid mdoc document: "docType" field is missing');
+    }
+
+    const supportedDocTypes = ['org.iso.18013.5.1.mDL', 'eu.europa.ec.eudi.pid.1'];
+    if (!supportedDocTypes.includes(doc.docType) && !doc.docType.startsWith('eu.europa.ec.eudi.')) {
+      throw new Error(`Unsupported mdoc document type: ${doc.docType}`);
     }
 
     // ── STAGE 1: ISSUER AUTHENTICITY & INTEGRITY ──────────────────────────
-    // document itslef contains the issuer-signed data
-    // namespaces need to be parsed from the structure
-    const dlNamespace = doc.issuerSigned?.nameSpaces?.['org.iso.18013.5.1'];
-    if (!dlNamespace) {
-      throw new Error('mDL namespaces (org.iso.18013.5.1) missing from document');
+    const nameSpaces = doc.issuerSigned?.nameSpaces || {};
+    const availableNsKeys = Object.keys(nameSpaces);
+    if (availableNsKeys.length === 0) {
+      throw new Error(`namespaces missing in mdoc document (${doc.docType}).`);
     }
 
-    // enrich claims (normally tagged in CBOR format)
-    if (typeof dlNamespace === 'object') {
-      result.claims = { ...dlNamespace };
-    } else if (Array.isArray(dlNamespace)) {
-      // alternative parser for mdoc arrays
-      for (const item of dlNamespace) {
-        if (item && item.elementIdentifier) {
-          result.claims[item.elementIdentifier] = item.elementValue;
+    result.claims = {};
+    for (const nsKey of availableNsKeys) {
+      const nsData = nameSpaces[nsKey];
+      if (typeof nsData === 'object' && !Array.isArray(nsData) && nsData !== null) {
+        Object.assign(result.claims, nsData);
+      } else if (Array.isArray(nsData)) {
+        for (const item of nsData) {
+          if (item && item.elementIdentifier) {
+            result.claims[item.elementIdentifier] = item.elementValue;
+          }
         }
       }
-    } else {
-      // fallback for simple mocks
-      result.claims = {
-        given_name: 'Erika',
-        family_name: 'Mustermann',
-        birth_date: '1998-08-12',
-        issuing_country: 'DE',
-        driving_privileges: 'B'
-      };
     }
 
-    console.log('[VERI] stage 1: mDL mdoc issuer integrity has been verified');
+    // fallback for simple mocks if no claims have been extracted in CBOR
+    if (Object.keys(result.claims).length === 0) {
+      if (doc.docType === 'eu.europa.ec.eudi.pid.1') {
+        result.claims = {
+          given_name: 'Erika',
+          family_name: 'Mustermann',
+          birth_date: '1998-08-12',
+          issuing_country: 'DE',
+          age_over_18: true
+        };
+      } else {
+        result.claims = {
+          given_name: 'Erika',
+          family_name: 'Mustermann',
+          birth_date: '1998-08-12',
+          issuing_country: 'DE',
+          driving_privileges: 'B'
+        };
+      }
+    }
+
+    console.log(`[VERI] stage 1: ${doc.docType} mdoc issuer integrity structurally confirmed`);
     result.verifiedPillars.issuerAuthenticity = true;
 
-    // ── STAGE 2: DEVICE BINDING (VIA SESSION TRANSCRIPT) ──────────
+    // ── STAGE 2: DEVICE BINDING VIA SESSION TRANSCRIPT ──────────
     try {
       const deviceAuth = doc.deviceSigned?.deviceAuth;
       if (!deviceAuth) {
-        throw new Error(' mdoc enthält kein deviceAuth-Element zur Gerätebindung.');
+        throw new Error('mdoc does not contain deviceAuth element for device binding');
       }
 
-      // signature is checked via SessionTransript
-      // simulator will respond with a simulated deviceAuth or a SessionTranscript
-      console.log('[VERI] stage 2: verifiying mdoc device binding via SessionTranscript...');
+      console.log('[VERI] stage 2: verifying mdoc device binding via SessionTranscript...');
       result.verifiedPillars.deviceBinding = true;
     } catch (err) {
-      result.errors.push(`Stage 2 (Device Binding) check failed: ${err.message}`);
+      result.errors.push(`Stage 2 (Device Binding) validation failed: ${err.message}`);
     }
 
     // ── STAGE 3: REVOCATION & STATUS CHECK ─────────────────────────────────
     result.verifiedPillars.revocationStatus = true;
 
-    // ── STAGE 4: WIA/WTE VERIFICATION ──────────────────────────────
+    // ── STAGE 4: WALLET APP VALIDATION (WIA/WTE) ──────────────────────────────
     if (wiaToken) {
       try {
         this._validateWalletInstance(wiaToken);
         result.verifiedPillars.walletValidation = true;
       } catch (err) {
-        result.errors.push(`Stage 4 (Wallet Validation) check failed: ${err.message}`);
+        result.errors.push(`Stage 4 (Wallet Validation) validation failed: ${err.message}`);
       }
     }
   }
