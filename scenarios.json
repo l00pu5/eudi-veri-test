@@ -5,7 +5,7 @@
       "name": "DE National PID - Altersnachweis (18+)",
       "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
       "certs": {
-        "accessCertificate": "certs/access_certificate.pem",
+        "accessCertificate": "certs/access_certificate.cer",
         "accessPrivateKey": "certs/access_certificate_key.pem",
         "registrationCertificate": "certs/registration_certificate.jwt"
       },
@@ -54,7 +54,7 @@
       "name": "EUDI PID (ISO mdoc) - Altersnachweis (18+)",
       "description": "Fordert Vorname, Nachname und die Bestätigung 'age_over_18' aus der PID im ISO mdoc-Format an.",
       "certs": {
-        "accessCertificate": "certs/access_certificate_mdoc.pem",
+        "accessCertificate": "certs/access_certificate_mdoc.cer",
         "accessPrivateKey": "certs/access_certificate_key_mdoc.pem",
         "registrationCertificate": "certs/registration_certificate_mdoc.jwt"
       },
@@ -81,8 +81,35 @@
               },
               {
                 "path": [
-                  "eu.europa.ec.eudi.pid.1",
+                  "org.iso.18013.5.1",
                   "age_over_18"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "pid_mdoc_credential2",
+            "format": "mso_mdoc",
+            "meta": {
+              "doctype_value": "eu.europa.ec.eudi.pid.1"
+            },
+            "claims": [
+              {
+                "path": [
+                  "eu.europa.ec.eudi.pid.1",
+                  "family_name"
+                ]
+              },
+              {
+                "path": [
+                  "eu.europa.ec.eudi.pid.1",
+                  "given_name"
+                ]
+              },
+              {
+                "path": [
+                  "org.iso.18013.5.1",
+                  "birth_date"
                 ]
               }
             ]
@@ -94,6 +121,9 @@
           "options": [
             [
               "pid_mdoc_credential"
+            ],
+            [
+              "pid_mdoc_credential2"
             ]
           ]
         }
