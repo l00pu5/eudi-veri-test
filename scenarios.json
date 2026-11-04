@@ -78,56 +78,11 @@
                   "eu.europa.ec.eudi.pid.1",
                   "given_name"
                 ]
-              },
-              {
-                "path": [
-                  "org.iso.18013.5.1",
-                  "age_over_18"
-                ]
-              }
-            ]
-          },
-          {
-            "id": "pid_mdoc_credential2",
-            "format": "mso_mdoc",
-            "meta": {
-              "doctype_value": "eu.europa.ec.eudi.pid.1"
-            },
-            "claims": [
-              {
-                "path": [
-                  "eu.europa.ec.eudi.pid.1",
-                  "family_name"
-                ]
-              },
-              {
-                "path": [
-                  "eu.europa.ec.eudi.pid.1",
-                  "given_name"
-                ]
-              },
-              {
-                "path": [
-                  "org.iso.18013.5.1",
-                  "birth_date"
-                ]
               }
             ]
           }
         ]
-      },
-      "credential_sets": [
-        {
-          "options": [
-            [
-              "pid_mdoc_credential"
-            ],
-            [
-              "pid_mdoc_credential2"
-            ]
-          ]
-        }
-      ]
+      }
     },
     "pid_full_identity": {
       "name": "DE National PID - Vollständige Identität",
