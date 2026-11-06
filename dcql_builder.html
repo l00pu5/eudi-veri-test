@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EUDI Wallet - DCQL Query Builder</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --border-color: #cbd5e1;
+            --brand-color: #004494;
+            --brand-hover: #003380;
+            --brand-light: rgba(0, 68, 148, 0.08);
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --code-bg: #0f172a;
+            --code-text: #f8fafc;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            line-height: 1.5;
+            padding: 1.5rem;
+        }
+
+        header {
+            max-width: 1400px;
+            margin: 0 auto 1.5rem auto;
+            background: var(--card-bg);
+            padding: 1.25rem 1.5rem;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .title-group h1 {
+            font-size: 1.35rem;
+            color: var(--brand-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .title-group p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--brand-color);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .btn-primary {
+            background-color: var(--brand-color);
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--brand-hover);
+        }
+
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+        }
+
+        .btn-danger {
+            background-color: #fee2e2;
+            color: var(--danger-color);
+        }
+
+        .btn-danger:hover {
+            background-color: #fecaca;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+            color: var(--text-secondary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.55rem 0.75rem;
+            font-size: 0.9rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            background: #ffffff;
+        }
+
+        .form-control:focus {
+            outline: 2px solid var(--brand-color);
+        }
+
+        .credential-box {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.6rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            position: relative;
+        }
+
+        .credential-box-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .claims-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            background: #ffffff;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        .claim-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.825rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .claim-item input {
+            cursor: pointer;
+        }
+
+        .set-option {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .json-preview-container {
+            position: relative;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.25rem;
+            border-radius: 0.6rem;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            max-height: 650px;
+            line-height: 1.45;
+        }
+
+        .catalog-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.6);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+
+        .catalog-modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #ffffff;
+            width: 100%;
+            max-width: 800px;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.15rem 0.5rem;
+            border-radius: 0.3rem;
+            text-transform: uppercase;
+        }
+        .badge-sdjwt { background: #dbeafe; color: #1e40af; }
+        .badge-mdoc { background: #fce7f3; color: #9d174d; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="title-group">
+            <h1>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                DCQL Query Builder (EUDI Wallet)
+            </h1>
+            <p>Interaktiver Generator für Digital Credentials Query Language (DCQL) Anfragen (OID4VP / HAIP 1.0)</p>
+        </div>
+        <div>
+            <button class="btn btn-secondary" onclick="openCatalogEditor()">
+                ⚙️ Katalog (JSON Schema) bearbeiten
+            </button>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- LINKES PANEL: BUILDER FORMULAR -->
+        <section class="card">
+            <div class="card-header">
+                <span class="card-title">1. Credentials konfigurieren</span>
+                <button class="btn btn-primary" onclick="addCredentialQuery()">+ Credential hinzufügen</button>
+            </div>
+
+            <div id="credentials-list"></div>
+
+            <div class="card-header" style="margin-top: 2rem;">
+                <span class="card-title">2. Credential Sets (Fallback / Logik)</span>
+                <button class="btn btn-secondary" onclick="addCredentialSetOption()">+ Fallback-Pfad hinzufügen</button>
+            </div>
+
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                Definiert ODER-Verknüpfungen / Fallbacks (z.B. Option A: <code>['pid_age_flag']</code> ODER Option B: <code>['pid_birthdate']</code>).
+            </p>
+
+            <div id="credential-sets-list"></div>
+        </section>
+
+        <!-- RECHTES PANEL: JSON PREVIEW & EXPORT -->
+        <section class="card">
+            <div class="card-header">
+                <span class="card-title">Generierte DCQL Query (JSON)</span>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-secondary" onclick="copyJson()">📋 Kopieren</button>
+                    <button class="btn btn-primary" onclick="downloadScenarioJson()">💾 Als scenario.json Exportieren</button>
+                </div>
+            </div>
+
+            <div class="json-preview-container">
+                <pre><code id="json-output">{}</code></pre>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL: KATALOG EDITIEREN -->
+    <div class="catalog-modal" id="catalog-modal">
+        <div class="modal-content">
+            <div class="card-header">
+                <span class="card-title">Erweiterbarer Credential- & Claim-Katalog</span>
+                <button class="btn btn-danger" onclick="closeCatalogEditor()">❌ Schließen</button>
+            </div>
+            <p style="font-size: 0.825rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                Hier können Sie neue Formate, Doctypes, VCT-Werte oder spezifische Claims als JSON-Objekt anpassen oder erweitern.
+            </p>
+            <div class="form-group">
+                <textarea id="catalog-json-text" class="form-control" style="height: 380px; font-family: monospace; font-size: 0.8rem;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                <button class="btn btn-secondary" onclick="resetCatalogDefault()">Standard wiederherstellen</button>
+                <button class="btn btn-primary" onclick="saveCatalogJson()">Änderungen Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // STANDARD-KATALOG (ERWEITERBAR)
+        const DEFAULT_CATALOG = {
+            "credentials": [
+                {
+                    "id_prefix": "pid_sdjwt",
+                    "title": "EUDI PID (SD-JWT VC)",
+                    "format": "dc+sd-jwt",
+                    "meta_key": "vct_values",
+                    "meta_value": ["urn:eudi:pid:de:1"],
+                    "claims": [
+                        { "label": "Vorname", "path": ["given_name"] },
+                        { "label": "Nachname", "path": ["family_name"] },
+                        { "label": "Geburtsdatum", "path": ["birthdate"] },
+                        { "label": "Altersbestätigung (age_over_18)", "path": ["age_over_18"] },
+                        { "label": "Altersbestätigung (age_equal_or_over 18)", "path": ["age_equal_or_over", "18"] },
+                        { "label": "Staatsangehörigkeit", "path": ["nationalities"] },
+                        { "label": "Geburtsort (Locality)", "path": ["place_of_birth", "locality"] },
+                        { "label": "Adresse (Straße)", "path": ["address", "street_address"] },
+                        { "label": "Adresse (Ort)", "path": ["address", "locality"] },
+                        { "label": "Adresse (PLZ)", "path": ["address", "postal_code"] },
+                        { "label": "Adresse (Land)", "path": ["address", "country"] },
+                        { "label": "Ausstellungsland", "path": ["issuing_country"] }
+                    ]
+                },
+                {
+                    "id_prefix": "pid_mdoc",
+                    "title": "EUDI PID (ISO mdoc)",
+                    "format": "mso_mdoc",
+                    "meta_key": "doctype_value",
+                    "meta_value": "eu.europa.ec.eudi.pid.1",
+                    "claims": [
+                        { "label": "Vorname (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "given_name"] },
+                        { "label": "Nachname (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "family_name"] },
+                        { "label": "Geburtsdatum (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "birth_date"] },
+                        { "label": "Altersbestätigung (ISO Namespace)", "path": ["org.iso.18013.5.1", "age_over_18"] },
+                        { "label": "Altersbestätigung (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "age_over_18"] },
+                        { "label": "Alter in Jahren", "path": ["eu.europa.ec.eudi.pid.1", "age_in_years"] },
+                        { "label": "Geburtsjahr", "path": ["eu.europa.ec.eudi.pid.1", "age_birth_year"] },
+                        { "label": "Wohnort (Stadt)", "path": ["eu.europa.ec.eudi.pid.1", "resident_city"] },
+                        { "label": "Wohnort (Land)", "path": ["eu.europa.ec.eudi.pid.1", "resident_country"] },
+                        { "label": "Staatsangehörigkeit", "path": ["eu.europa.ec.eudi.pid.1", "nationality"] }
+                    ]
+                },
+                {
+                    "id_prefix": "mdl_mdoc",
+                    "title": "Mobile Driving License (mDL ISO mdoc)",
+                    "format": "mso_mdoc",
+                    "meta_key": "doctype_value",
+                    "meta_value": "org.iso.18013.5.1.mDL",
+                    "claims": [
+                        { "label": "Nachname", "path": ["org.iso.18013.5.1", "family_name"] },
+                        { "label": "Vorname", "path": ["org.iso.18013.5.1", "given_name"] },
+                        { "label": "Geburtsdatum", "path": ["org.iso.18013.5.1", "birth_date"] },
+                        { "label": "Fahrerlaubnisklassen", "path": ["org.iso.18013.5.1", "driving_privileges"] },
+                        { "label": "Ausstellungsdatum", "path": ["org.iso.18013.5.1", "issue_date"] },
+                        { "label": "Ablaufdatum", "path": ["org.iso.18013.5.1", "expiry_date"] },
+                        { "label": "Ausstellungsland", "path": ["org.iso.18013.5.1", "issuing_country"] }
+                    ]
+                },
+                {
+                    "id_prefix": "employee_eaa",
+                    "title": "Employee ID Card (Mitarbeiter-EAA SD-JWT VC)",
+                    "format": "dc+sd-jwt",
+                    "meta_key": "vct_values",
+                    "meta_value": ["urn:company:employee_id:1"],
+                    "claims": [
+                        { "label": "Vorname", "path": ["given_name"] },
+                        { "label": "Nachname", "path": ["family_name"] },
+                        { "label": "Mitarbeiter-ID", "path": ["employee_id"] },
+                        { "label": "Abteilung", "path": ["department"] },
+                        { "label": "Rolle / Position", "path": ["role"] },
+                        { "label": "E-Mail-Adresse", "path": ["email"] }
+                    ]
+                }
+            ]
+        };
+
+        let currentCatalog = JSON.parse(localStorage.getItem('dcql_catalog') || JSON.stringify(DEFAULT_CATALOG));
+        let activeQueries = [];
+        let credentialSetOptions = [];
+
+        function init() {
+            // Erstes Standard-Credential hinzufügen
+            addCredentialQuery(0);
+            renderBuilder();
+        }
+
+        function addCredentialQuery(catalogIndex = 0) {
+            const template = currentCatalog.credentials[catalogIndex] || currentCatalog.credentials[0];
+            const uniqueId = `${template.id_prefix}_${Date.now().toString().slice(-4)}`;
+            
+            const queryObj = {
+                id: uniqueId,
+                catalogIndex: catalogIndex,
+                selectedClaims: template.claims.map((_, idx) => idx < 3) // Erste 3 standardmäßig auswählen
+            };
+
+            activeQueries.push(queryObj);
+            renderBuilder();
+        }
+
+        function removeCredentialQuery(index) {
+            activeQueries.splice(index, 1);
+            renderBuilder();
+        }
+
+        function onCatalogTemplateChange(queryIndex, newCatalogIdx) {
+            const template = currentCatalog.credentials[newCatalogIdx];
+            activeQueries[queryIndex].catalogIndex = parseInt(newCatalogIdx, 10);
+            activeQueries[queryIndex].id = `${template.id_prefix}_${Date.now().toString().slice(-3)}`;
+            activeQueries[queryIndex].selectedClaims = template.claims.map((_, idx) => idx < 3);
+            renderBuilder();
+        }
+
+        function toggleClaim(queryIndex, claimIndex) {
+            activeQueries[queryIndex].selectedClaims[claimIndex] = !activeQueries[queryIndex].selectedClaims[claimIndex];
+            renderBuilder();
+        }
+
+        function updateQueryId(queryIndex, newId) {
+            activeQueries[queryIndex].id = newId.trim();
+            renderBuilder();
+        }
+
+        function addCredentialSetOption() {
+            if (activeQueries.length === 0) return alert("Fügen Sie zuerst ein Credential hinzu!");
+            // Standardmäßig alle aktiven Query IDs als ein Array in options aufnehmen
+            credentialSetOptions.push(activeQueries.map(q => q.id));
+            renderBuilder();
+        }
+
+        function removeCredentialSetOption(index) {
+            credentialSetOptions.splice(index, 1);
+            renderBuilder();
+        }
+
+        function renderBuilder() {
+            const container = document.getElementById('credentials-list');
+            container.innerHTML = '';
+
+            activeQueries.forEach((q, qIdx) => {
+                const tmpl = currentCatalog.credentials[q.catalogIndex];
+                const box = document.createElement('div');
+                box.className = 'credential-box';
+
+                let templateOptions = currentCatalog.credentials.map((c, idx) => 
+                    `<option value="${idx}" ${idx === q.catalogIndex ? 'selected' : ''}>${c.title} (${c.format})</option>`
+                ).join('');
+
+                let claimsHtml = tmpl.claims.map((c, cIdx) => `
+                    <label class="claim-item">
+                        <input type="checkbox" ${q.selectedClaims[cIdx] ? 'checked' : ''} onchange="toggleClaim(${qIdx}, ${cIdx})">
+                        <span>${c.label} <code style="font-size:0.7rem; color:var(--brand-color);">[${c.path.join('.')}]</code></span>
+                    </label>
+                `).join('');
+
+                box.innerHTML = `
+                    <div class="credential-box-header">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span class="badge ${tmpl.format === 'mso_mdoc' ? 'badge-mdoc' : 'badge-sdjwt'}">${tmpl.format}</span>
+                            <strong>Credential Query #${qIdx + 1}</strong>
+                        </div>
+                        <button class="btn btn-danger" onclick="removeCredentialQuery(${qIdx})" style="padding:0.25rem 0.5rem; font-size:0.75rem;">Entfernen</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Vorlage / Typ wählen</label>
+                        <select class="form-control" onchange="onCatalogTemplateChange(${qIdx}, this.value)">
+                            ${templateOptions}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Eindeutige Query-ID (id)</label>
+                        <input class="form-control" type="text" value="${q.id}" onchange="updateQueryId(${qIdx}, this.value)">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Angeforderte Claims (Pfad-Selektion)</label>
+                        <div class="claims-grid">
+                            ${claimsHtml}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(box);
+            });
+
+            // Credential Sets Rendering
+            const setContainer = document.getElementById('credential-sets-list');
+            setContainer.innerHTML = '';
+            credentialSetOptions.forEach((opt, sIdx) => {
+                const setDiv = document.createElement('div');
+                setDiv.className = 'set-option';
+                setDiv.innerHTML = `
+                    <div style="display:flex; justify-between; align-items:center; margin-bottom:0.35rem;">
+                        <strong style="font-size:0.85rem;">Option #${sIdx + 1}</strong>
+                        <button class="btn btn-danger" onclick="removeCredentialSetOption(${sIdx})" style="padding:0.2rem 0.4rem; font-size:0.7rem;">Löschen</button>
+                    </div>
+                    <div style="font-size:0.8rem; color:var(--text-secondary);">
+                        Erforderliche Credential-IDs: <code>[${opt.map(id => `'${id}'`).join(', ')}]</code>
+                    </div>
+                `;
+                setContainer.appendChild(setDiv);
+            });
+
+            updateJsonOutput();
+        }
+
+        function generateDcqlObject() {
+            const credentials = activeQueries.map(q => {
+                const tmpl = currentCatalog.credentials[q.catalogIndex];
+                const metaObj = {};
+                metaObj[tmpl.meta_key] = tmpl.meta_value;
+
+                const selectedClaimsList = tmpl.claims
+                    .filter((_, cIdx) => q.selectedClaims[cIdx])
+                    .map(c => ({ path: c.path }));
+
+                return {
+                    id: q.id,
+                    format: tmpl.format,
+                    meta: metaObj,
+                    claims: selectedClaimsList
+                };
+            });
+
+            const dcql = {
+                credentials: credentials
+            };
+
+            if (credentialSetOptions.length > 0) {
+                dcql.credential_sets = [
+                    {
+                        options: credentialSetOptions
+                    }
+                ];
+            }
+
+            return dcql;
+        }
+
+        function updateJsonOutput() {
+            const dcql = generateDcqlObject();
+            document.getElementById('json-output').innerText = JSON.stringify({ dcqlQuery: dcql }, null, 2);
+        }
+
+        function copyJson() {
+            const text = document.getElementById('json-output').innerText;
+            navigator.clipboard.writeText(text);
+            alert("DCQL JSON in die Zwischenablage kopiert!");
+        }
+
+        function downloadScenarioJson() {
+            const dcql = generateDcqlObject();
+            const scenario = {
+                name: "Custom Generated DCQL Scenario",
+                description: "Generiert über den interaktiven DCQL Query Builder.",
+                certs: {
+                    accessCertificate: "certs/access_certificate.pem",
+                    accessPrivateKey: "certs/access_certificate_key.pem",
+                    registrationCertificate: "certs/registration_certificate.jwt"
+                },
+                dcqlQuery: dcql
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(scenario, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "custom_dcql_scenario.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // KATALOG EDITOR MODAL
+        function openCatalogEditor() {
+            document.getElementById('catalog-json-text').value = JSON.stringify(currentCatalog, null, 2);
+            document.getElementById('catalog-modal').classList.add('active');
+        }
+
+        function closeCatalogEditor() {
+            document.getElementById('catalog-modal').classList.remove('active');
+        }
+
+        function saveCatalogJson() {
+            try {
+                const parsed = JSON.parse(document.getElementById('catalog-json-text').value);
+                if (!parsed.credentials || !Array.isArray(parsed.credentials)) {
+                    throw new Error("Das JSON-Objekt muss ein 'credentials'-Array enthalten.");
+                }
+                currentCatalog = parsed;
+                localStorage.setItem('dcql_catalog', JSON.stringify(currentCatalog));
+                closeCatalogEditor();
+                activeQueries = [];
+                addCredentialQuery(0);
+                alert("Katalog erfolgreich aktualisiert!");
+            } catch (err) {
+                alert("Fehler im JSON-Format: " + err.message);
+            }
+        }
+
+        function resetCatalogDefault() {
+            currentCatalog = JSON.parse(JSON.stringify(DEFAULT_CATALOG));
+            localStorage.removeItem('dcql_catalog');
+            document.getElementById('catalog-json-text').value = JSON.stringify(currentCatalog, null, 2);
+            saveCatalogJson();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
