@@ -248,10 +248,14 @@ project_folder/
 
 ### Step 0: .env variables
 
-- `PORT`
-- `PUBLIC_URL`
-- `SCENARIO`
-- `ISSUER_ID`
+- `PORT` - defines the port that the server is running on
+- `PUBLIC_URL` - defines the public URL of the host for the request_uri
+- `SCENARIO` - defines the default scenario
+- `ISSUER_ID` - defines the issuer ID
+- `ENFORCE_RFC9101_STRICT`
+- `ENFORCE_JAR_ONE_TIME_USE`
+- `ENFORCE_JAR_EXPIRATION`
+- `JAR_LIFETIME_SECONDS`
 
 ### Step 1: launching the sandbox server
 Launch the Express backend on port `3000`. The server will automatically generate the demo trust keys upon starting and will save them at `./demo-keys.json`:
