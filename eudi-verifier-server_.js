@@ -5,7 +5,7 @@
  * 1. RP backend for facilitating credential presentation requests (OpenID4VP) with JWE encryption (direct_post.jwt)
  * 2. Issuer backend for credential issuance of a mock PID (OpenID4VCI & HAIP 1.0)
  * 
- * It will generate demo keys on demand and stores them in ./demo-keys.json
+ * It will generate demo keys on demand as fallback and will store them in ./demo-keys.json
  */
 
 const express = require('express');
