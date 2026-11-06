@@ -145,7 +145,7 @@ function loadScenarioAndCertificates() {
       "name": "DE National PID - Altersnachweis (18+)",
       "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
       "certs": {
-        "accessCertificate": "certs/access_certificate.pem",
+        "accessCertificate": "certs/access_certificate.cer",
         "accessPrivateKey": "certs/access_certificate_key.pem",
         "registrationCertificate": "certs/registration_certificate.jwt"
       },
@@ -211,7 +211,7 @@ function loadCertificatesForScenario(certsConfig = {}) {
 
   const accessCertPath = certsConfig.accessCertificate
     ? path.resolve(__dirname, certsConfig.accessCertificate)
-    : path.join(certsDir, 'access_certificate.pem');
+    : path.join(certsDir, 'access_certificate.cer');
 
   const accessKeyPath = certsConfig.accessPrivateKey
     ? path.resolve(__dirname, certsConfig.accessPrivateKey)
@@ -235,6 +235,9 @@ function loadCertificatesForScenario(certsConfig = {}) {
       accessCertDerBuffer = x509.raw;
       loadedAccess = true;
       console.log('[CERT] access certificate loaded from:', path.basename(accessCertPath));
+    }
+    else {
+      console.log(`[CERT] unable to load access certificate from: ${accessCertPath}`);
     }
   } catch (e) {
     console.warn('[CERT] error while loading the access certificate:', e.message);
