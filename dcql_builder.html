@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EUDI Wallet - DCQL Query Builder</title>
+    <title>EUDI Wallet - DCQL Query Builder v2 (Credential & Claim Sets)</title>
     <style>
         :root {
             --bg-color: #f8fafc;
@@ -17,6 +17,7 @@
             --success-color: #10b981;
             --warning-color: #f59e0b;
             --danger-color: #ef4444;
+            --purple-color: #8b5cf6;
             --code-bg: #0f172a;
             --code-text: #f8fafc;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -65,7 +66,7 @@
             max-width: 1400px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1.1fr 0.9fr;
             gap: 1.5rem;
         }
 
@@ -129,6 +130,16 @@
             background-color: #cbd5e1;
         }
 
+        .btn-purple {
+            background-color: #f3e8ff;
+            color: var(--purple-color);
+            border: 1px solid #d8b4fe;
+        }
+
+        .btn-purple:hover {
+            background-color: #e9d5ff;
+        }
+
         .btn-danger {
             background-color: #fee2e2;
             color: var(--danger-color);
@@ -181,7 +192,7 @@
 
         .claims-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
             gap: 0.5rem;
             margin-top: 0.5rem;
             background: #ffffff;
@@ -203,6 +214,14 @@
 
         .claim-item input {
             cursor: pointer;
+        }
+
+        .claim-set-box {
+            background: #faf5ff;
+            border: 1px dashed var(--purple-color);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
         }
 
         .set-option {
@@ -277,9 +296,9 @@
                     <line x1="16" y1="17" x2="8" y2="17"></line>
                     <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
-                DCQL Query Builder (EUDI Wallet)
+                DCQL Query Builder v2 (Credential- & Claim-Sets)
             </h1>
-            <p>Interaktiver Generator für Digital Credentials Query Language (DCQL) Anfragen (OID4VP / HAIP 1.0)</p>
+            <p>Unterstützt visuelle Erstellung von <code>credential_sets</code> (Multi-Credential Fallbacks) & <code>claim_sets</code> (Attribut-Alternativen)</p>
         </div>
         <div>
             <button class="btn btn-secondary" onclick="openCatalogEditor()">
@@ -292,19 +311,19 @@
         <!-- LINKES PANEL: BUILDER FORMULAR -->
         <section class="card">
             <div class="card-header">
-                <span class="card-title">1. Credentials konfigurieren</span>
+                <span class="card-title">1. Credentials & Claims konfigurieren</span>
                 <button class="btn btn-primary" onclick="addCredentialQuery()">+ Credential hinzufügen</button>
             </div>
 
             <div id="credentials-list"></div>
 
             <div class="card-header" style="margin-top: 2rem;">
-                <span class="card-title">2. Credential Sets (Fallback / Logik)</span>
-                <button class="btn btn-secondary" onclick="addCredentialSetOption()">+ Fallback-Pfad hinzufügen</button>
+                <span class="card-title">2. Credential Sets (Credential-Ebenen-Logik)</span>
+                <button class="btn btn-secondary" onclick="addCredentialSetOption()">+ Credential-Fallback-Pfad hinzufügen</button>
             </div>
 
             <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-                Definiert ODER-Verknüpfungen / Fallbacks (z.B. Option A: <code>['pid_age_flag']</code> ODER Option B: <code>['pid_birthdate']</code>).
+                Definiert ODER-Verknüpfungen zwischen <b>verschiedenen Credentials</b> (z.B. Option A: <code>['pid_sdjwt']</code> ODER Option B: <code>['pid_mdoc']</code>).
             </p>
 
             <div id="credential-sets-list"></div>
@@ -347,7 +366,7 @@
     </div>
 
     <script>
-        // STANDARD-KATALOG (ERWEITERBAR)
+        // STANDARD-KATALOG
         const DEFAULT_CATALOG = {
             "credentials": [
                 {
@@ -357,18 +376,13 @@
                     "meta_key": "vct_values",
                     "meta_value": ["urn:eudi:pid:de:1"],
                     "claims": [
-                        { "label": "Vorname", "path": ["given_name"] },
-                        { "label": "Nachname", "path": ["family_name"] },
-                        { "label": "Geburtsdatum", "path": ["birthdate"] },
-                        { "label": "Altersbestätigung (age_over_18)", "path": ["age_over_18"] },
-                        { "label": "Altersbestätigung (age_equal_or_over 18)", "path": ["age_equal_or_over", "18"] },
-                        { "label": "Staatsangehörigkeit", "path": ["nationalities"] },
-                        { "label": "Geburtsort (Locality)", "path": ["place_of_birth", "locality"] },
-                        { "label": "Adresse (Straße)", "path": ["address", "street_address"] },
-                        { "label": "Adresse (Ort)", "path": ["address", "locality"] },
-                        { "label": "Adresse (PLZ)", "path": ["address", "postal_code"] },
-                        { "label": "Adresse (Land)", "path": ["address", "country"] },
-                        { "label": "Ausstellungsland", "path": ["issuing_country"] }
+                        { "id": "given_name", "label": "Vorname", "path": ["given_name"] },
+                        { "id": "family_name", "label": "Nachname", "path": ["family_name"] },
+                        { "id": "birthdate", "label": "Geburtsdatum", "path": ["birthdate"] },
+                        { "id": "age_over_18", "label": "Altersbestätigung (age_over_18)", "path": ["age_over_18"] },
+                        { "id": "age_18_path", "label": "Altersbestätigung (age_equal_or_over 18)", "path": ["age_equal_or_over", "18"] },
+                        { "id": "nationalities", "label": "Staatsangehörigkeit", "path": ["nationalities"] },
+                        { "id": "address_locality", "label": "Adresse (Ort)", "path": ["address", "locality"] }
                     ]
                 },
                 {
@@ -378,16 +392,12 @@
                     "meta_key": "doctype_value",
                     "meta_value": "eu.europa.ec.eudi.pid.1",
                     "claims": [
-                        { "label": "Vorname (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "given_name"] },
-                        { "label": "Nachname (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "family_name"] },
-                        { "label": "Geburtsdatum (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "birth_date"] },
-                        { "label": "Altersbestätigung (ISO Namespace)", "path": ["org.iso.18013.5.1", "age_over_18"] },
-                        { "label": "Altersbestätigung (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "age_over_18"] },
-                        { "label": "Alter in Jahren", "path": ["eu.europa.ec.eudi.pid.1", "age_in_years"] },
-                        { "label": "Geburtsjahr", "path": ["eu.europa.ec.eudi.pid.1", "age_birth_year"] },
-                        { "label": "Wohnort (Stadt)", "path": ["eu.europa.ec.eudi.pid.1", "resident_city"] },
-                        { "label": "Wohnort (Land)", "path": ["eu.europa.ec.eudi.pid.1", "resident_country"] },
-                        { "label": "Staatsangehörigkeit", "path": ["eu.europa.ec.eudi.pid.1", "nationality"] }
+                        { "id": "given_name", "label": "Vorname (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "given_name"] },
+                        { "id": "family_name", "label": "Nachname (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "family_name"] },
+                        { "id": "birth_date", "label": "Geburtsdatum (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "birth_date"] },
+                        { "id": "age_over_18_iso", "label": "Altersbestätigung (ISO Namespace)", "path": ["org.iso.18013.5.1", "age_over_18"] },
+                        { "id": "age_over_18_pid", "label": "Altersbestätigung (PID Namespace)", "path": ["eu.europa.ec.eudi.pid.1", "age_over_18"] },
+                        { "id": "resident_city", "label": "Wohnort (Stadt)", "path": ["eu.europa.ec.eudi.pid.1", "resident_city"] }
                     ]
                 },
                 {
@@ -397,13 +407,10 @@
                     "meta_key": "doctype_value",
                     "meta_value": "org.iso.18013.5.1.mDL",
                     "claims": [
-                        { "label": "Nachname", "path": ["org.iso.18013.5.1", "family_name"] },
-                        { "label": "Vorname", "path": ["org.iso.18013.5.1", "given_name"] },
-                        { "label": "Geburtsdatum", "path": ["org.iso.18013.5.1", "birth_date"] },
-                        { "label": "Fahrerlaubnisklassen", "path": ["org.iso.18013.5.1", "driving_privileges"] },
-                        { "label": "Ausstellungsdatum", "path": ["org.iso.18013.5.1", "issue_date"] },
-                        { "label": "Ablaufdatum", "path": ["org.iso.18013.5.1", "expiry_date"] },
-                        { "label": "Ausstellungsland", "path": ["org.iso.18013.5.1", "issuing_country"] }
+                        { "id": "family_name", "label": "Nachname", "path": ["org.iso.18013.5.1", "family_name"] },
+                        { "id": "given_name", "label": "Vorname", "path": ["org.iso.18013.5.1", "given_name"] },
+                        { "id": "birth_date", "label": "Geburtsdatum", "path": ["org.iso.18013.5.1", "birth_date"] },
+                        { "id": "driving_privileges", "label": "Fahrerlaubnisklassen", "path": ["org.iso.18013.5.1", "driving_privileges"] }
                     ]
                 },
                 {
@@ -413,12 +420,11 @@
                     "meta_key": "vct_values",
                     "meta_value": ["urn:company:employee_id:1"],
                     "claims": [
-                        { "label": "Vorname", "path": ["given_name"] },
-                        { "label": "Nachname", "path": ["family_name"] },
-                        { "label": "Mitarbeiter-ID", "path": ["employee_id"] },
-                        { "label": "Abteilung", "path": ["department"] },
-                        { "label": "Rolle / Position", "path": ["role"] },
-                        { "label": "E-Mail-Adresse", "path": ["email"] }
+                        { "id": "given_name", "label": "Vorname", "path": ["given_name"] },
+                        { "id": "family_name", "label": "Nachname", "path": ["family_name"] },
+                        { "id": "employee_id", "label": "Mitarbeiter-ID", "path": ["employee_id"] },
+                        { "id": "department", "label": "Abteilung", "path": ["department"] },
+                        { "id": "role", "label": "Rolle / Position", "path": ["role"] }
                     ]
                 }
             ]
@@ -429,7 +435,6 @@
         let credentialSetOptions = [];
 
         function init() {
-            // Erstes Standard-Credential hinzufügen
             addCredentialQuery(0);
             renderBuilder();
         }
@@ -441,7 +446,9 @@
             const queryObj = {
                 id: uniqueId,
                 catalogIndex: catalogIndex,
-                selectedClaims: template.claims.map((_, idx) => idx < 3) // Erste 3 standardmäßig auswählen
+                selectedClaims: template.claims.map((_, idx) => idx < 3), // Erste 3 standardmäßig auswählen
+                useClaimSets: false,
+                claimSetOptions: [] // z.B. [ ["given_name", "family_name", "age_over_18_iso"], ["given_name", "family_name", "birth_date"] ]
             };
 
             activeQueries.push(queryObj);
@@ -458,11 +465,36 @@
             activeQueries[queryIndex].catalogIndex = parseInt(newCatalogIdx, 10);
             activeQueries[queryIndex].id = `${template.id_prefix}_${Date.now().toString().slice(-3)}`;
             activeQueries[queryIndex].selectedClaims = template.claims.map((_, idx) => idx < 3);
+            activeQueries[queryIndex].useClaimSets = false;
+            activeQueries[queryIndex].claimSetOptions = [];
             renderBuilder();
         }
 
         function toggleClaim(queryIndex, claimIndex) {
             activeQueries[queryIndex].selectedClaims[claimIndex] = !activeQueries[queryIndex].selectedClaims[claimIndex];
+            renderBuilder();
+        }
+
+        function toggleUseClaimSets(queryIndex) {
+            activeQueries[queryIndex].useClaimSets = !activeQueries[queryIndex].useClaimSets;
+            if (activeQueries[queryIndex].useClaimSets && activeQueries[queryIndex].claimSetOptions.length === 0) {
+                // Erstelle zwei Initiale Optionen aus ausgewählten Claims
+                const tmpl = currentCatalog.credentials[activeQueries[queryIndex].catalogIndex];
+                const selectedIds = tmpl.claims.filter((_, idx) => activeQueries[queryIndex].selectedClaims[idx]).map(c => c.id);
+                activeQueries[queryIndex].claimSetOptions.push([...selectedIds]);
+            }
+            renderBuilder();
+        }
+
+        function addClaimSetOption(queryIndex) {
+            const tmpl = currentCatalog.credentials[activeQueries[queryIndex].catalogIndex];
+            const selectedIds = tmpl.claims.filter((_, idx) => activeQueries[queryIndex].selectedClaims[idx]).map(c => c.id);
+            activeQueries[queryIndex].claimSetOptions.push([...selectedIds]);
+            renderBuilder();
+        }
+
+        function removeClaimSetOption(queryIndex, optionIndex) {
+            activeQueries[queryIndex].claimSetOptions.splice(optionIndex, 1);
             renderBuilder();
         }
 
@@ -473,7 +505,6 @@
 
         function addCredentialSetOption() {
             if (activeQueries.length === 0) return alert("Fügen Sie zuerst ein Credential hinzu!");
-            // Standardmäßig alle aktiven Query IDs als ein Array in options aufnehmen
             credentialSetOptions.push(activeQueries.map(q => q.id));
             renderBuilder();
         }
@@ -499,9 +530,33 @@
                 let claimsHtml = tmpl.claims.map((c, cIdx) => `
                     <label class="claim-item">
                         <input type="checkbox" ${q.selectedClaims[cIdx] ? 'checked' : ''} onchange="toggleClaim(${qIdx}, ${cIdx})">
-                        <span>${c.label} <code style="font-size:0.7rem; color:var(--brand-color);">[${c.path.join('.')}]</code></span>
+                        <span><b>${c.id}</b> (${c.label}) <code style="font-size:0.7rem; color:var(--brand-color);">[${c.path.join('.')}]</code></span>
                     </label>
                 `).join('');
+
+                // Claim Sets Render
+                let claimSetsHtml = '';
+                if (q.useClaimSets) {
+                    let optionsHtml = q.claimSetOptions.map((opt, optIdx) => `
+                        <div style="display:flex; justify-content:space-between; align-items:center; background:#ffffff; padding:0.4rem 0.6rem; border-radius:0.4rem; border:1px solid #e9d5ff; margin-bottom:0.35rem; font-size:0.8rem;">
+                            <span>Option #${optIdx + 1}: <code>[${opt.map(id => `'${id}'`).join(', ')}]</code></span>
+                            <button class="btn btn-danger" onclick="removeClaimSetOption(${qIdx}, ${optIdx})" style="padding:0.15rem 0.4rem; font-size:0.7rem;">Entfernen</button>
+                        </div>
+                    `).join('');
+
+                    claimSetsHtml = `
+                        <div class="claim-set-box">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                                <strong style="font-size:0.85rem; color:var(--purple-color);">🔮 Internes claim_sets (Attribut-Alternativen)</strong>
+                                <button class="btn btn-purple" onclick="addClaimSetOption(${qIdx})" style="padding:0.2rem 0.5rem; font-size:0.75rem;">+ Attribut-Option (Set) hinzufügen</button>
+                            </div>
+                            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.5rem;">
+                                Generiert ein <code>claim_sets</code>-Array im Credential-Objekt. Die derzeit angehakten Claims werden als neue Option übernommen.
+                            </p>
+                            ${optionsHtml}
+                        </div>
+                    `;
+                }
 
                 box.innerHTML = `
                     <div class="credential-box-header">
@@ -525,11 +580,19 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Angeforderte Claims (Pfad-Selektion)</label>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <label class="form-label">Angeforderte Claims & IDs (Pfad-Selektion)</label>
+                            <label style="font-size:0.8rem; color:var(--purple-color); font-weight:600; cursor:pointer;">
+                                <input type="checkbox" ${q.useClaimSets ? 'checked' : ''} onchange="toggleUseClaimSets(${qIdx})">
+                                ⚡ claim_sets (Attribut-Alternativen) aktivieren
+                            </label>
+                        </div>
                         <div class="claims-grid">
                             ${claimsHtml}
                         </div>
                     </div>
+
+                    ${claimSetsHtml}
                 `;
                 container.appendChild(box);
             });
@@ -542,7 +605,7 @@
                 setDiv.className = 'set-option';
                 setDiv.innerHTML = `
                     <div style="display:flex; justify-between; align-items:center; margin-bottom:0.35rem;">
-                        <strong style="font-size:0.85rem;">Option #${sIdx + 1}</strong>
+                        <strong style="font-size:0.85rem;">Credential-Set Option #${sIdx + 1}</strong>
                         <button class="btn btn-danger" onclick="removeCredentialSetOption(${sIdx})" style="padding:0.2rem 0.4rem; font-size:0.7rem;">Löschen</button>
                     </div>
                     <div style="font-size:0.8rem; color:var(--text-secondary);">
@@ -563,14 +626,24 @@
 
                 const selectedClaimsList = tmpl.claims
                     .filter((_, cIdx) => q.selectedClaims[cIdx])
-                    .map(c => ({ path: c.path }));
+                    .map(c => ({ id: c.id, path: c.path }));
 
-                return {
+                const credObj = {
                     id: q.id,
                     format: tmpl.format,
                     meta: metaObj,
                     claims: selectedClaimsList
                 };
+
+                if (q.useClaimSets && q.claimSetOptions.length > 0) {
+                    credObj.claim_sets = [
+                        {
+                            options: q.claimSetOptions
+                        }
+                    ];
+                }
+
+                return credObj;
             });
 
             const dcql = {
@@ -602,8 +675,8 @@
         function downloadScenarioJson() {
             const dcql = generateDcqlObject();
             const scenario = {
-                name: "Custom Generated DCQL Scenario",
-                description: "Generiert über den interaktiven DCQL Query Builder.",
+                name: "Custom Generated DCQL Scenario (with Sets)",
+                description: "Generiert über den interaktiven DCQL Query Builder v2.",
                 certs: {
                     accessCertificate: "certs/access_certificate.pem",
                     accessPrivateKey: "certs/access_certificate_key.pem",
