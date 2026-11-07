@@ -14,40 +14,59 @@
           {
             "id": "pid_age_credential",
             "format": "dc+sd-jwt",
-            "meta": {
-              "vct_values": [
-                "urn:eudi:pid:de:1"
-              ]
-            },
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
             "claims": [
-              {
-                "path": [
-                  "given_name"
-                ]
-              },
-              {
-                "path": [
-                  "family_name"
-                ]
-              },
-              {
-                "path": [
-                  "age_equal_or_over",
-                  "18"
-                ]
-              }
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "age_equal_or_over", "18" ] }
             ]
           }
         ],
         "credential_sets": [
           {
             "options": [
-              [
-                "pid_age_credential"
-              ]
+              [ "pid_age_credential" ]
             ]
           }
         ]
+      }
+    },
+    "full_pid_with_claim_sets": {
+      "name": "DE National PID - PID-Check mit claim_sets",
+      "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.cer",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": { 
+        "credentials": [ 
+          { 
+            "id": "de_pid_credential", 
+            "format": "dc+sd-jwt", 
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] }, 
+            "claims": [ 
+              { "id": "c_given_name", "path": ["given_name"] }, 
+              { "id": "c_family_name", "path": ["family_name"] }, 
+              { "id": "c_birthdate", "path": ["birthdate"] }, 
+              { "id": "c_birth_name", "path": ["birth_name"] }, 
+              { "id": "c_title", "path": ["title"] }, 
+              { "id": "c_place_of_birth", "path": ["place_of_birth", "locality"] }, 
+              { "id": "c_street_address", "path": ["address", "street_address"] }, 
+              { "id": "c_locality", "path": ["address", "locality"] }, 
+              { "id": "c_postal_code", "path": ["address", "postal_code"] }, 
+              { "id": "c_country", "path": ["address", "country"] } 
+            ], 
+            "claim_sets": [ 
+              { 
+                "options": [ 
+                  [ "c_title", "c_birthdate", "c_place_of_birth", "c_given_name", "c_locality", "c_country", "c_family_name", "c_postal_code", "c_street_address", "c_birth_name" ], 
+                  [ "c_birthdate", "c_place_of_birth", "c_given_name", "c_locality", "c_country", "c_family_name", "c_postal_code", "c_street_address", "c_birth_name" ] 
+                ] 
+              } 
+            ] 
+          } 
+        ] 
       }
     },
     "pid_mdoc_age_18": {
@@ -63,22 +82,11 @@
           {
             "id": "pid_mdoc_credential",
             "format": "mso_mdoc",
-            "meta": {
-              "doctype_value": "eu.europa.ec.eudi.pid.1"
-            },
+            "meta": { "doctype_value": "eu.europa.ec.eudi.pid.1" },
             "claims": [
-              {
-                "path": [
-                  "eu.europa.ec.eudi.pid.1",
-                  "family_name"
-                ]
-              },
-              {
-                "path": [
-                  "eu.europa.ec.eudi.pid.1",
-                  "given_name"
-                ]
-              }
+              { "path": [ "eu.europa.ec.eudi.pid.1", "family_name" ] },
+              { "path": [ "eu.europa.ec.eudi.pid.1", "given_name" ] },
+              { "path": [ "eu.europa.ec.eudi.pid.de.1", "age_over_18" ] }
             ]
           }
         ]
@@ -97,54 +105,21 @@
           {
             "id": "pid_full_credential",
             "format": "dc+sd-jwt",
-            "meta": {
-              "vct_values": [
-                "urn:eudi:pid:de:1"
-              ]
-            },
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
             "claims": [
-              {
-                "path": [
-                  "given_name"
-                ]
-              },
-              {
-                "path": [
-                  "family_name"
-                ]
-              },
-              {
-                "path": [
-                  "birthdate"
-                ]
-              },
-              {
-                "path": [
-                  "place_of_birth",
-                  "locality"
-                ]
-              },
-              {
-                "path": [
-                  "address",
-                  "street_address"
-                ]
-              },
-              {
-                "path": [
-                  "address",
-                  "locality"
-                ]
-              }
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "birthdate" ] },
+              { "path": [ "place_of_birth", "locality" ] },
+              { "path": [ "address", "street_address" ] },
+              { "path": [ "address", "locality" ] }
             ]
           }
         ],
         "credential_sets": [
           {
             "options": [
-              [
-                "pid_full_crdential"
-              ]
+              [ "pid_full_crdential" ]
             ]
           }
         ]
@@ -163,36 +138,17 @@
           {
             "id": "mdl_credential",
             "format": "mso_mdoc",
-            "meta": {
-              "doc_type": "org.iso.18013.5.1.mDL"
-            },
+            "meta": { "doc_type": "org.iso.18013.5.1.mDL" },
             "claims": [
-              {
-                "path": [
-                  "org.iso.18013.5.1",
-                  "family_name"
-                ]
-              },
-              {
-                "path": [
-                  "org.iso.18013.5.1",
-                  "given_name"
-                ]
-              },
-              {
-                "path": [
-                  "org.iso.18013.5.1",
-                  "driving_privileges"
-                ]
-              }
+              { "path": [ "org.iso.18013.5.1", "family_name" ] },
+              { "path": [ "org.iso.18013.5.1", "given_name" ] },
+              { "path": [ "org.iso.18013.5.1", "driving_privileges" ] }
             ]
           }
         ],
         "credential_sets": {
           "options": [
-            [
-              "mdl_credential"
-            ]
+            [ "mdl_credential" ]
           ]
         }
       }
@@ -210,40 +166,19 @@
           {
             "id": "my_identity_credential",
             "format": "dc+sd-jwt",
-            "meta": {
-              "vct_values": [
-                "https://credentials.example.com/identity_credential"
-              ]
+            "meta": { "vct_values": [ "https://credentials.example.com/identity_credential" ]
             },
             "claims": [
-              {
-                "path": [
-                  "given_name"
-                ]
-              },
-              {
-                "path": [
-                  "family_name"
-                ]
-              },
-              {
-                "path": [
-                  "birthdate"
-                ]
-              },
-              {
-                "path": [
-                  "is_over_18"
-                ]
-              }
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "birthdate" ] },
+              { "path": [ "is_over_18" ] }
             ]
           }
         ],
         "credential_sets": {
           "options": [
-            [
-              "my_identity_credential"
-            ]
+            [ "my_identity_credential" ]
           ]
         }
       }
@@ -261,36 +196,17 @@
           {
             "id": "pid_age_credential",
             "format": "dc+sd-jwt",
-            "meta": {
-              "vct_values": [
-                "https://credentials.example.com/identity_credential"
-              ]
-            },
+            "meta": { "vct_values": [ "https://credentials.example.com/identity_credential" ] },
             "claims": [
-              {
-                "path": [
-                  "given_name"
-                ]
-              },
-              {
-                "path": [
-                  "family_name"
-                ]
-              },
-              {
-                "path": [
-                  "age_equal_or_over",
-                  "18"
-                ]
-              }
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "age_equal_or_over", "18" ] }
             ]
           }
         ],
         "credential_sets": {
           "options": [
-            [
-              "pid_age_credential"
-            ]
+            [ "pid_age_credential" ]
           ]
         }
       }
@@ -308,46 +224,21 @@
           {
             "id": "employee_credential",
             "format": "dc+sd-jwt",
-            "meta": {
-              "vct_values": [
-                "urn:company:employee_id:1"
-              ]
+            "meta": { "vct_values": [ "urn:company:employee_id:1" ]
             },
             "claims": [
-              {
-                "path": [
-                  "given_name"
-                ]
-              },
-              {
-                "path": [
-                  "family_name"
-                ]
-              },
-              {
-                "path": [
-                  "employee_id"
-                ]
-              },
-              {
-                "path": [
-                  "department"
-                ]
-              },
-              {
-                "path": [
-                  "role"
-                ]
-              }
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "employee_id" ] },
+              { "path": [ "department" ] },
+              { "path": [ "role" ] }
             ]
           }
         ],
         "credential_sets": [
           {
             "options": [
-              [
-                "employee_credential"
-              ]
+              [ "employee_credential" ]
             ]
           }
         ]
