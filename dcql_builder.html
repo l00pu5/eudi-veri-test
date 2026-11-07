@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EUDI Wallet - DCQL Query Builder v2 (Credential & Claim Sets)</title>
+    <title>EUDI Wallet - DCQL Query Builder</title>
     <style>
         :root {
             --bg-color: #f8fafc;
@@ -296,46 +296,42 @@
                     <line x1="16" y1="17" x2="8" y2="17"></line>
                     <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
-                DCQL Query Builder v2 (Credential- & Claim-Sets)
+                DCQL Query Builder
             </h1>
-            <p>Unterstützt visuelle Erstellung von <code>credential_sets</code> (Multi-Credential Fallbacks) & <code>claim_sets</code> (Attribut-Alternativen)</p>
         </div>
         <div>
             <button class="btn btn-secondary" onclick="openCatalogEditor()">
-                ⚙️ Katalog (JSON Schema) bearbeiten
+                ⚙️ Edit schema catalogue (JSON)
             </button>
         </div>
     </header>
 
     <main class="container">
-        <!-- LINKES PANEL: BUILDER FORMULAR -->
         <section class="card">
             <div class="card-header">
-                <span class="card-title">1. Credentials & Claims konfigurieren</span>
-                <button class="btn btn-primary" onclick="addCredentialQuery()">+ Credential hinzufügen</button>
+                <span class="card-title">1. Configure Credentials & Claims</span>
+                <button class="btn btn-primary" onclick="addCredentialQuery()">+ add credential</button>
             </div>
 
             <div id="credentials-list"></div>
 
             <div class="card-header" style="margin-top: 2rem;">
-                <span class="card-title">2. Credential Sets (Credential-Ebenen-Logik)</span>
-                <button class="btn btn-secondary" onclick="addCredentialSetOption()">+ Credential-Fallback-Pfad hinzufügen</button>
+                <span class="card-title">2. Credential Sets</span>
+                <button class="btn btn-secondary" onclick="addCredentialSetOption()">+ add credential fallback path</button>
             </div>
 
             <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-                Definiert ODER-Verknüpfungen zwischen <b>verschiedenen Credentials</b> (z.B. Option A: <code>['pid_sdjwt']</code> ODER Option B: <code>['pid_mdoc']</code>).
+                Defined OR links between <b>different credentials</b> (e.g. Option A: <code>['pid_sdjwt']</code> ORR Option B: <code>['pid_mdoc']</code>).
             </p>
 
             <div id="credential-sets-list"></div>
         </section>
 
-        <!-- RECHTES PANEL: JSON PREVIEW & EXPORT -->
         <section class="card">
             <div class="card-header">
-                <span class="card-title">Generierte DCQL Query (JSON)</span>
+                <span class="card-title">Generated DCQL Query (JSON)</span>
                 <div style="display: flex; gap: 0.5rem;">
-                    <button class="btn btn-secondary" onclick="copyJson()">📋 Kopieren</button>
-                    <button class="btn btn-primary" onclick="downloadScenarioJson()">💾 Als scenario.json Exportieren</button>
+                    <button class="btn btn-secondary" onclick="copyJson()">📋 Copy</button>
                 </div>
             </div>
 
@@ -345,28 +341,27 @@
         </section>
     </main>
 
-    <!-- MODAL: KATALOG EDITIEREN -->
     <div class="catalog-modal" id="catalog-modal">
         <div class="modal-content">
             <div class="card-header">
-                <span class="card-title">Erweiterbarer Credential- & Claim-Katalog</span>
-                <button class="btn btn-danger" onclick="closeCatalogEditor()">❌ Schließen</button>
+                <span class="card-title">Credential & Claim Catalogue</span>
+                <button class="btn btn-danger" onclick="closeCatalogEditor()">❌ Close</button>
             </div>
             <p style="font-size: 0.825rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
-                Hier können Sie neue Formate, Doctypes, VCT-Werte oder spezifische Claims als JSON-Objekt anpassen oder erweitern.
+                You can edit formats, doctypes VCT values or claims as JSON here.
             </p>
             <div class="form-group">
                 <textarea id="catalog-json-text" class="form-control" style="height: 380px; font-family: monospace; font-size: 0.8rem;"></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
-                <button class="btn btn-secondary" onclick="resetCatalogDefault()">Standard wiederherstellen</button>
-                <button class="btn btn-primary" onclick="saveCatalogJson()">Änderungen Speichern</button>
+                <button class="btn btn-secondary" onclick="resetCatalogDefault()">Reset to default</button>
+                <button class="btn btn-primary" onclick="saveCatalogJson()">Save changes</button>
             </div>
         </div>
     </div>
 
     <script>
-        // STANDARD-KATALOG
+        // DEFAULT CATALOGUE
         const DEFAULT_CATALOG = {
             "credentials": [
                 {
@@ -446,9 +441,9 @@
             const queryObj = {
                 id: uniqueId,
                 catalogIndex: catalogIndex,
-                selectedClaims: template.claims.map((_, idx) => idx < 3), // Erste 3 standardmäßig auswählen
+                selectedClaims: template.claims.map((_, idx) => idx < 3), // select first 3 by default
                 useClaimSets: false,
-                claimSetOptions: [] // z.B. [ ["given_name", "family_name", "age_over_18_iso"], ["given_name", "family_name", "birth_date"] ]
+                claimSetOptions: [] // e.g. [ ["given_name", "family_name", "age_over_18_iso"], ["given_name", "family_name", "birth_date"] ]
             };
 
             activeQueries.push(queryObj);
@@ -478,7 +473,7 @@
         function toggleUseClaimSets(queryIndex) {
             activeQueries[queryIndex].useClaimSets = !activeQueries[queryIndex].useClaimSets;
             if (activeQueries[queryIndex].useClaimSets && activeQueries[queryIndex].claimSetOptions.length === 0) {
-                // Erstelle zwei Initiale Optionen aus ausgewählten Claims
+                // create 2 initial options from selected claims
                 const tmpl = currentCatalog.credentials[activeQueries[queryIndex].catalogIndex];
                 const selectedIds = tmpl.claims.filter((_, idx) => activeQueries[queryIndex].selectedClaims[idx]).map(c => c.id);
                 activeQueries[queryIndex].claimSetOptions.push([...selectedIds]);
@@ -504,7 +499,7 @@
         }
 
         function addCredentialSetOption() {
-            if (activeQueries.length === 0) return alert("Fügen Sie zuerst ein Credential hinzu!");
+            if (activeQueries.length === 0) return alert("Please add a credential first!");
             credentialSetOptions.push(activeQueries.map(q => q.id));
             renderBuilder();
         }
@@ -547,11 +542,11 @@
                     claimSetsHtml = `
                         <div class="claim-set-box">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                                <strong style="font-size:0.85rem; color:var(--purple-color);">🔮 Internes claim_sets (Attribut-Alternativen)</strong>
-                                <button class="btn btn-purple" onclick="addClaimSetOption(${qIdx})" style="padding:0.2rem 0.5rem; font-size:0.75rem;">+ Attribut-Option (Set) hinzufügen</button>
+                                <strong style="font-size:0.85rem; color:var(--purple-color);">🔮 claim_sets (attribute alternatives)</strong>
+                                <button class="btn btn-purple" onclick="addClaimSetOption(${qIdx})" style="padding:0.2rem 0.5rem; font-size:0.75rem;">+ add attribute option (set)</button>
                             </div>
                             <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:0.5rem;">
-                                Generiert ein <code>claim_sets</code>-Array im Credential-Objekt. Die derzeit angehakten Claims werden als neue Option übernommen.
+                                Generates an <code>claim_sets</code> array in the credential object. The currently selected claims will be added as new option.
                             </p>
                             ${optionsHtml}
                         </div>
@@ -564,27 +559,27 @@
                             <span class="badge ${tmpl.format === 'mso_mdoc' ? 'badge-mdoc' : 'badge-sdjwt'}">${tmpl.format}</span>
                             <strong>Credential Query #${qIdx + 1}</strong>
                         </div>
-                        <button class="btn btn-danger" onclick="removeCredentialQuery(${qIdx})" style="padding:0.25rem 0.5rem; font-size:0.75rem;">Entfernen</button>
+                        <button class="btn btn-danger" onclick="removeCredentialQuery(${qIdx})" style="padding:0.25rem 0.5rem; font-size:0.75rem;">Remove</button>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Vorlage / Typ wählen</label>
+                        <label class="form-label">Select template / type</label>
                         <select class="form-control" onchange="onCatalogTemplateChange(${qIdx}, this.value)">
                             ${templateOptions}
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Eindeutige Query-ID (id)</label>
+                        <label class="form-label">Query ID (id)</label>
                         <input class="form-control" type="text" value="${q.id}" onchange="updateQueryId(${qIdx}, this.value)">
                     </div>
 
                     <div class="form-group">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <label class="form-label">Angeforderte Claims & IDs (Pfad-Selektion)</label>
+                            <label class="form-label">Requested claims & IDs (path selection)</label>
                             <label style="font-size:0.8rem; color:var(--purple-color); font-weight:600; cursor:pointer;">
                                 <input type="checkbox" ${q.useClaimSets ? 'checked' : ''} onchange="toggleUseClaimSets(${qIdx})">
-                                ⚡ claim_sets (Attribut-Alternativen) aktivieren
+                                ⚡ enable claim_sets
                             </label>
                         </div>
                         <div class="claims-grid">
@@ -605,11 +600,11 @@
                 setDiv.className = 'set-option';
                 setDiv.innerHTML = `
                     <div style="display:flex; justify-between; align-items:center; margin-bottom:0.35rem;">
-                        <strong style="font-size:0.85rem;">Credential-Set Option #${sIdx + 1}</strong>
-                        <button class="btn btn-danger" onclick="removeCredentialSetOption(${sIdx})" style="padding:0.2rem 0.4rem; font-size:0.7rem;">Löschen</button>
+                        <strong style="font-size:0.85rem;">Credential Set Option #${sIdx + 1}</strong>
+                        <button class="btn btn-danger" onclick="removeCredentialSetOption(${sIdx})" style="padding:0.2rem 0.4rem; font-size:0.7rem;">Delete</button>
                     </div>
                     <div style="font-size:0.8rem; color:var(--text-secondary);">
-                        Erforderliche Credential-IDs: <code>[${opt.map(id => `'${id}'`).join(', ')}]</code>
+                        Required credential IDs: <code>[${opt.map(id => `'${id}'`).join(', ')}]</code>
                     </div>
                 `;
                 setContainer.appendChild(setDiv);
@@ -636,11 +631,7 @@
                 };
 
                 if (q.useClaimSets && q.claimSetOptions.length > 0) {
-                    credObj.claim_sets = [
-                        {
-                            options: q.claimSetOptions
-                        }
-                    ];
+                    credObj.claim_sets = q.claimSetOptions;
                 }
 
                 return credObj;
@@ -669,14 +660,14 @@
         function copyJson() {
             const text = document.getElementById('json-output').innerText;
             navigator.clipboard.writeText(text);
-            alert("DCQL JSON in die Zwischenablage kopiert!");
+            alert("DCQL JSON copied to clipboard");
         }
 
         function downloadScenarioJson() {
             const dcql = generateDcqlObject();
             const scenario = {
                 name: "Custom Generated DCQL Scenario (with Sets)",
-                description: "Generiert über den interaktiven DCQL Query Builder v2.",
+                description: "Generated via DCQL Query Builder",
                 certs: {
                     accessCertificate: "certs/access_certificate.pem",
                     accessPrivateKey: "certs/access_certificate_key.pem",
@@ -693,7 +684,6 @@
             downloadAnchor.remove();
         }
 
-        // KATALOG EDITOR MODAL
         function openCatalogEditor() {
             document.getElementById('catalog-json-text').value = JSON.stringify(currentCatalog, null, 2);
             document.getElementById('catalog-modal').classList.add('active');
@@ -707,16 +697,16 @@
             try {
                 const parsed = JSON.parse(document.getElementById('catalog-json-text').value);
                 if (!parsed.credentials || !Array.isArray(parsed.credentials)) {
-                    throw new Error("Das JSON-Objekt muss ein 'credentials'-Array enthalten.");
+                    throw new Error("JSON object must have a 'credentials' array");
                 }
                 currentCatalog = parsed;
                 localStorage.setItem('dcql_catalog', JSON.stringify(currentCatalog));
                 closeCatalogEditor();
                 activeQueries = [];
                 addCredentialQuery(0);
-                alert("Katalog erfolgreich aktualisiert!");
+                alert("Catalogue updated successfully");
             } catch (err) {
-                alert("Fehler im JSON-Format: " + err.message);
+                alert("Error in JSON format: " + err.message);
             }
         }
 
