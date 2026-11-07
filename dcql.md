@@ -472,6 +472,12 @@ VCT value: `urn:eudi:pid:de:1`
 - `issuing_authority` - authority
 - `issuing_country` - country
 
+### 5. Additional Attributes
+- `source_document_type`
+- `title`
+- `birth_name`
+- `raw_edit_birth_date`
+
 ### Example
 
 ```json
