@@ -32,12 +32,12 @@
       }
     },
     "full_pid_with_claim_sets": {
-      "name": "DE National PID - PID-Check mit claim_sets",
+      "name": "DE National PID - PID-Check mit claim_sets + aki",
       "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
       "certs": {
-        "accessCertificate": "certs/access_certificate.cer",
-        "accessPrivateKey": "certs/access_certificate_key.pem",
-        "registrationCertificate": "certs/registration_certificate.jwt"
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_02.jwt"
       },
       "dcqlQuery": { 
         "credentials": [ 
@@ -45,6 +45,16 @@
             "id": "de_pid_credential", 
             "format": "dc+sd-jwt", 
             "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] }, 
+            "trusted_authorities": [
+              {
+                "type": "aki",
+                "values": [
+                  "DwxXXjAPjh_JTDmMvShj9mxzzd4",
+                  "meBmzkS6HU7Aiwkm88YrTJ-AjAQ",
+                  "gF_OyGFlHJhs9NWUXV_6gFhDvl8"
+                ]
+              }
+            ],
             "claims": [ 
               { "id": "c_given_name", "path": ["given_name"] }, 
               { "id": "c_family_name", "path": ["family_name"] }, 
