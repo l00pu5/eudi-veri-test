@@ -378,6 +378,14 @@ node eudi-openid4vp-request-validator.js "https://example.com"
 node eudi-openid4vp-request-validator.js "eyJhbGciOiJFUzI1NiIs..."
 ```
 
+## Using the certificate validator
+
+```bash
+node ./tools/cert-validator.js ./certs/access_certificate.pem ./certs/registration_certificate.jwt
+node ./tools/cert-validator.js --access ./certs/access_certificate.pem --registration ./certs/registration_certificate.jwt
+node ./tools/cert-validator.js -a ./certs/access_certificate.pem -r ./certs/registration_certificate.jwt
+```
+
 ---
 
 ## 🔒 Overview of cryptographic validation checks
