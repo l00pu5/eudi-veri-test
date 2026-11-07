@@ -58,13 +58,9 @@
               { "id": "c_country", "path": ["address", "country"] } 
             ], 
             "claim_sets": [ 
-              { 
-                "options": [ 
-                  [ "c_title", "c_birthdate", "c_place_of_birth", "c_given_name", "c_locality", "c_country", "c_family_name", "c_postal_code", "c_street_address", "c_birth_name" ], 
-                  [ "c_birthdate", "c_place_of_birth", "c_given_name", "c_locality", "c_country", "c_family_name", "c_postal_code", "c_street_address", "c_birth_name" ] 
-                ] 
-              } 
-            ] 
+              [ "c_title", "c_birthdate", "c_place_of_birth", "c_given_name", "c_locality", "c_country", "c_family_name", "c_postal_code", "c_street_address", "c_birth_name" ], 
+              [ "c_birthdate", "c_place_of_birth", "c_given_name", "c_locality", "c_country", "c_family_name", "c_postal_code", "c_street_address", "c_birth_name" ] 
+            ]   
           } 
         ] 
       }
