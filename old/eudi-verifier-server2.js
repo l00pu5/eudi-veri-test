@@ -979,7 +979,6 @@ app.all('/api/issuance/initiate', (req, res) => {
   });
 });
 
-
 // Route zur Bereitstellung von Firmenlogos und Visuals für Credential Display Metadata
 app.get('/assets/company_logo.png', (req, res) => {
   const candidatePaths = [
@@ -1253,7 +1252,6 @@ app.get([
     res.json(metadata);
   }
 });
-
 
 app.get([
   '/.well-known/openid-configuration',
