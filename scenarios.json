@@ -24,6 +24,7 @@
         ],
         "credential_sets": [
           {
+            "purpose": "Identification",
             "options": [
               [ "pid_age_credential" ]
             ]
