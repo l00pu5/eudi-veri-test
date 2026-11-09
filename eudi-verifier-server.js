@@ -719,6 +719,7 @@ app.get('/api/presentation/request-jwt', (req, res) => {
     aud: "https://self-issued.me/v2",
     iat: iat,
     exp: exp,
+    // scope: "openid", // <-- will break presentation request if present
     response_type: "vp_token",
     response_mode: "direct_post.jwt",
     response_uri: `${RP_CONFIG.publicUrl}/api/presentation/callback`,
@@ -777,6 +778,7 @@ app.get('/api/presentation/request-jwt', (req, res) => {
     console.log(`[RP] JAR request for session ${sessionId} has been delivered to wallet`);
 
     res.setHeader('Content-Type', 'application/oauth-authz-req+jwt');
+    //res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'no-store');
     res.send(signedJwt);
   } catch (err) {
