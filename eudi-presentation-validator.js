@@ -372,6 +372,14 @@ class OpenID4VPRequestValidator {
   validateQueries(payload) {
     console.log("--- 4. CHECKING DCQL / PRESENTATION DEFINITION ---");
 
+    if (payload.dcql_query && payload.scope) {
+      this.logError(`Invalid combination: 'dcql_query' + 'scope' ('${payload.scope}') must not be present at the same time`);
+    }
+
+    if (payload.presentation_definition && payload.scope) {
+      this.logError(`Invalid combination: 'presentation_definition' + 'scope' ('${payload.scope}') must not be present at the same time`);
+    }
+
     if (payload.dcql_query) {
       this.logInfo("Request is using DCQL (Digital Credentials Query Language)");
       const dcql = payload.dcql_query;
@@ -386,8 +394,10 @@ class OpenID4VPRequestValidator {
       }
     } else if (payload.presentation_definition) {
       this.logInfo("Request is using W3C Presentation Definition (DIF)");
+    } else if (payload.scope) {
+      this.logInfo(`Request is exclusively using 'scope' ('${payload.scope}') as credential query alias`);
     } else {
-      this.logError("Neither 'dcql_query' nor 'presentation_definition' found is request object payload");
+      this.logError("Neither 'dcql_query' nor 'presentation_definition' nor 'scope' found is request object payload");
     }
   }
 
