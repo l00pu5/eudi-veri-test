@@ -250,6 +250,53 @@
           }
         ]
       }
+    },
+    "mdl_full_check": { 
+      "name": "Mobile Driving License (mDL) - Vollständige Abfrage", 
+      "description": "Fordert alle ISO/IEC 18013-5 Attribute des mobilen Führerscheins an.", 
+      "certs": { 
+        "accessCertificate": "certs/access_certificate.pem", 
+        "accessPrivateKey": "certs/access_certificate_key.pem", 
+        "registrationCertificate": "certs/registration_certificate.jwt" 
+      }, 
+      "dcqlQuery": { 
+        "credentials": [ 
+          { 
+            "id": "mdl_full_credential", 
+            "format": "mso_mdoc", 
+            "meta": { "doctype_value": "org.iso.18013.5.1.mDL" }, 
+            "claims": [ 
+              { "id": "claim_family_name", "path": ["org.iso.18013.5.1", "family_name"] }, 
+              { "id": "claim_given_name", "path": ["org.iso.18013.5.1", "given_name"] }, 
+              { "id": "claim_birth_date", "path": ["org.iso.18013.5.1", "birth_date"] }, 
+              { "id": "claim_issue_date", "path": ["org.iso.18013.5.1", "issue_date"] }, 
+              { "id": "claim_expiry_date", "path": ["org.iso.18013.5.1", "expiry_date"] }, 
+              { "id": "claim_issuing_country", "path": ["org.iso.18013.5.1", "issuing_country"] }, 
+              { "id": "claim_issuing_authority", "path": ["org.iso.18013.5.1", "issuing_authority"] }, 
+              { "id": "claim_document_number", "path": ["org.iso.18013.5.1", "document_number"] }, 
+              { "id": "claim_driving_privileges", "path": ["org.iso.18013.5.1", "driving_privileges"] }, 
+              { "id": "claim_portrait", "path": ["org.iso.18013.5.1", "portrait"] }, 
+              { "id": "claim_administrative_number", "path": ["org.iso.18013.5.1", "administrative_number"] }, 
+              { "id": "claim_sex", "path": ["org.iso.18013.5.1", "sex"] }, 
+              { "id": "claim_height", "path": ["org.iso.18013.5.1", "height"] }, 
+              { "id": "claim_weight", "path": ["org.iso.18013.5.1", "weight"] }, 
+              { "id": "claim_eye_colour", "path": ["org.iso.18013.5.1", "eye_colour"] }, 
+              { "id": "claim_hair_colour", "path": ["org.iso.18013.5.1", "hair_colour"] }, 
+              { "id": "claim_place_of_birth", "path": ["org.iso.18013.5.1", "place_of_birth"] }, 
+              { "id": "claim_resident_address", "path": ["org.iso.18013.5.1", "resident_address"] }, 
+              { "id": "claim_resident_city", "path": ["org.iso.18013.5.1", "resident_city"] }, 
+              { "id": "claim_resident_postal_code", "path": ["org.iso.18013.5.1", "resident_postal_code"] }, 
+              { "id": "claim_resident_country", "path": ["org.iso.18013.5.1", "resident_country"] }, 
+              { "id": "claim_nationality", "path": ["org.iso.18013.5.1", "nationality"] }, 
+              { "id": "claim_issuing_jurisdiction", "path": ["org.iso.18013.5.1", "issuing_jurisdiction"] }, 
+              { "id": "claim_signature_usual_mark", "path": ["org.iso.18013.5.1", "signature_usual_mark"] }, 
+              { "id": "claim_age_in_years", "path": ["org.iso.18013.5.1", "age_in_years"] }, 
+              { "id": "claim_age_over_18", "path": ["org.iso.18013.5.1", "age_over_18"] }, 
+              { "id": "claim_age_over_21", "path": ["org.iso.18013.5.1", "age_over_21"] } 
+            ] 
+          } 
+        ] 
+      } 
     }
   }
 }
