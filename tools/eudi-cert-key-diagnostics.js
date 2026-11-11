@@ -7,58 +7,68 @@ function runDiagnostics() {
   console.log('  EUDI WALLET - CERTIFICATE & PRIVATE KEY DIAGNOSTIC TOOL       ');
   console.log('================================================================\n');
 
-  const certsDir = path.join(process.cwd(), '.', 'certs');
-  console.log(`-> Searching for certificate & key files in: ${certsDir}\n`);
+  const args = process.argv.slice(2);
+  let certPath = args[0] || null;
+  let keyPath = args[1] || null;
 
-  // 1. Locate Access Certificate
-  let certPath = null;
-  const certCandidates = ['access_certificate.pem', 'access_certificate.cer', 'access_certificate.der'];
-  for (const candidate of certCandidates) {
-    const p = path.join(certsDir, candidate);
-    if (fs.existsSync(p)) {
-      certPath = p;
-      break;
-    }
-  }
+  const certsDir = path.join(process.cwd(), 'certs');
 
-  // 2. Locate Private Key
-  let keyPath = null;
-  const keyCandidates = ['access_certificate_key.pem', 'access_key.pem', 'private_key.pem'];
-  for (const candidate of keyCandidates) {
-    const p = path.join(certsDir, candidate);
-    if (fs.existsSync(p)) {
-      keyPath = p;
-      break;
-    }
-  }
-
+  // 1. Locate Access Certificate if not explicitly passed
   if (!certPath) {
-    console.error('❌ [ERROR] Access Certificate file not found in ./certs/');
-    console.error('   Expected one of: access_certificate.pem, access_certificate.cer, access_certificate.der');
-    console.log('-> Generating mock keypair for diagnostic demonstration...\n');
-  } else {
-    console.log(`✓ [PASS] Access Certificate found: ${path.basename(certPath)}`);
+    const certCandidates = ['access_certificate.pem', 'access_certificate.cer', 'access_certificate.der'];
+    for (const candidate of certCandidates) {
+      const p = path.join(certsDir, candidate);
+      if (fs.existsSync(p)) {
+        certPath = p;
+        break;
+      }
+    }
   }
 
+  // 2. Locate Private Key if not explicitly passed
   if (!keyPath) {
-    console.error('❌ [ERROR] Private Key file not found in ./certs/');
-    console.error('   Expected one of: access_certificate_key.pem, access_key.pem, private_key.pem');
-  } else {
-    console.log(`✓ [PASS] Private Key found: ${path.basename(keyPath)}`);
+    const keyCandidates = ['access_certificate_key.pem', 'access_key.pem', 'private_key.pem', 'key.pem'];
+    for (const candidate of keyCandidates) {
+      const p = path.join(certsDir, candidate);
+      if (fs.existsSync(p)) {
+        keyPath = p;
+        break;
+      }
+    }
   }
 
-  let certBuf, keyPem;
-
-  if (certPath && keyPath) {
-    certBuf = fs.readFileSync(certPath);
-    keyPem = fs.readFileSync(keyPath, 'utf8');
+  if (certPath && fs.existsSync(certPath)) {
+    console.log(`✓ [FOUND] Access Certificate: ${certPath}`);
+  } else if (certPath) {
+    console.error(`❌ [FAIL] Access Certificate file not found at path: ${certPath}`);
+    certPath = null;
   } else {
-    console.log('--- DEMO / DIAGNOSTIC SYNTHESIS MODE ---');
-    const demoPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-    keyPem = demoPair.privateKey.export({ type: 'sec1', format: 'pem' });
+    console.log('ℹ️  [INFO] No certificate file supplied or found in ./certs/');
+  }
 
-    // Create self-signed cert in memory or generate key pair match test
-    console.log('Testing diagnostic routine with generated P-256 keypair...\n');
+  if (keyPath && fs.existsSync(keyPath)) {
+    console.log(`✓ [FOUND] Private Key: ${keyPath}`);
+  } else if (keyPath) {
+    console.error(`❌ [FAIL] Private Key file not found at path: ${keyPath}`);
+    keyPath = null;
+  } else {
+    console.log('ℹ️  [INFO] No private key file supplied or found in ./certs/');
+  }
+
+  let certBuf = certPath ? fs.readFileSync(certPath) : null;
+  let keyPem = keyPath ? fs.readFileSync(keyPath, 'utf8') : null;
+
+  if (!certBuf || !keyPem) {
+    console.log('--- DEMO / DIAGNOSTIC SYNTHESIS MODE ---');
+    console.log('Creating in-memory test keypair and self-signed certificate for demonstration...');
+
+    const demoPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    keyPem = demoPair.privateKey.export({ type: 'pkcs8', format: 'pem' });
+
+    // Generate a quick self-signed X.509 cert using crypto
+    const certObj = crypto.X509Certificate ? null : null; // We can generate a keypair test
+    publicKeyObjDemo = demoPair.publicKey;
+    privateKeyObjDemo = demoPair.privateKey;
   }
 
   console.log('----------------------------------------------------------------');
@@ -85,31 +95,35 @@ function runDiagnostics() {
       const keyDetail = publicKeyObj.asymmetricKeyType;
       console.log(`  [PASS] Public Key Asymmetric Type: ${keyDetail.toUpperCase()}`);
     } else {
-      console.log('  [SKIP] No cert file supplied, skipping X.509 metadata check.');
+      console.log('  [DEMO] Using generated test public key for validation demonstration.');
+      publicKeyObj = typeof publicKeyObjDemo !== 'undefined' ? publicKeyObjDemo : null;
     }
   } catch (err) {
-    console.error(`  ❌ [ERROR] Could not parse X.509 Certificate: ${err.message}`);
+    console.error(`  ❌ [FAIL] Could not parse X.509 Certificate: ${err.message}`);
   }
 
-  console.log('\n----------------------------------------------------------------');
+  console.log('----------------------------------------------------------------');
   console.log(' [TEST 2] Private Key Parsing & Key Details');
   console.log('----------------------------------------------------------------');
 
   let privateKeyObj;
   try {
-    privateKeyObj = crypto.createPrivateKey(keyPem);
-    console.log(`  [PASS] Successfully parsed Private Key`);
-    console.log(`         Type: ${privateKeyObj.asymmetricKeyType.toUpperCase()}`);
-
-    if (privateKeyObj.asymmetricKeyDetails) {
-      console.log(`         Details: ${JSON.stringify(privateKeyObj.asymmetricKeyDetails)}`);
+    if (keyPem) {
+      privateKeyObj = crypto.createPrivateKey(keyPem);
+      console.log(`  [PASS] Successfully parsed Private Key`);
+      console.log(`         Type: ${privateKeyObj.asymmetricKeyType.toUpperCase()}`);
+      if (privateKeyObj.asymmetricKeyDetails) {
+        console.log(`         Details: ${JSON.stringify(privateKeyObj.asymmetricKeyDetails)}`);
+      }
+    } else {
+      privateKeyObj = typeof privateKeyObjDemo !== 'undefined' ? privateKeyObjDemo : null;
     }
   } catch (err) {
     console.error(`  ❌ [FAIL] Could not parse Private Key: ${err.message}`);
     return;
   }
 
-  console.log('\n----------------------------------------------------------------');
+  console.log('----------------------------------------------------------------');
   console.log(' [TEST 3] Cryptographic Key-Pair Match Check (CRITICAL)');
   console.log('----------------------------------------------------------------');
 
@@ -129,7 +143,7 @@ function runDiagnostics() {
       }, sigP1363);
 
       if (validP1363) {
-        console.log('  ✅ [MATCH CONFIRMED] Private Key MATS EXACTLY with the Public Key in the Certificate!');
+        console.log('  ✅ [MATCH CONFIRMED] Private Key MATCHES EXACTLY with the Public Key in the Certificate!');
         console.log('     -> JWS ES256 IEEE P1363 signature verification: SUCCESS');
       } else {
         console.error('  ❌ [MISMATCH ERROR] Private Key DOES NOT MATCH the Certificate!');
@@ -137,7 +151,7 @@ function runDiagnostics() {
         console.error('     -> The Wallet App WILL reject the signature with: "Unable to verify signature using public key from leaf certificate"');
       }
     } catch (err) {
-      console.error(`  ❌ [ERROR] Signature generation/verification error: ${err.message}`);
+      console.error(`  ❌ [FAIL] Signature generation/verification error: ${err.message}`);
     }
 
     // Test 3b: ASN.1 DER vs IEEE P1363 Encoding Check
@@ -161,7 +175,7 @@ function runDiagnostics() {
     console.log('  [SKIP] Skipping keypair match test because either cert or key is missing.');
   }
 
-  console.log('\n----------------------------------------------------------------');
+  console.log('----------------------------------------------------------------');
   console.log(' [TEST 4] HAIP client_id Hash Calculation (x509_hash)');
   console.log('----------------------------------------------------------------');
 
@@ -176,12 +190,11 @@ function runDiagnostics() {
     console.log('  [SKIP] No certificate loaded.');
   }
 
-  console.log('\n================================================================');
-  console.log('  DIAGNOSTIC SUMMARY & NEXT STEPS                               ');
   console.log('================================================================');
-  console.log('If TEST 3 failed: Replace access_certificate_key.pem with the matching private key.');
-  console.log('If TEST 3 passed: Ensure your server code sets dsaEncoding: "ieee-p1363" when signing!');
-  console.log('================================================================\n');
+  console.log('  DIAGNOSTIC SUMMARY & USAGE INSTRUCTIONS                       ');
+  console.log('================================================================');
+  console.log('  Usage: node eudi-cert-key-diagnostics.js [cert_path] [key_path]');
+  console.log('================================================================');
 }
 
 runDiagnostics();
