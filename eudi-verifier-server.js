@@ -1,7 +1,7 @@
 /**
  * EUDI Wallet REST API Server
  * 
- * This mdule is mimpülementing SPI endpoints for:
+ * This mdule is implementing API endpoints for:
  * 1. RP backend for facilitating credential presentation requests (OpenID4VP) with JWE encryption (direct_post.jwt)
  * 2. Issuer backend for credential issuance of a mock PID (OpenID4VCI & HAIP 1.0)
  * 
