@@ -32,6 +32,64 @@
         ]
       }
     },
+    "pid_given_name_only": {
+      "name": "DE National PID - given_name",
+      "description": "Fordert Vorname aus der deutschen PID an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.cer",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": [
+              { "path": [ "given_name" ] }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "purpose": "Identification",
+            "options": [
+              [ "pid_credential" ]
+            ]
+          }
+        ]
+      }
+    },
+    "pid_nbf": {
+      "name": "DE National PID - nbf",
+      "description": "Fordert nbf aus der deutschen PID an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_nbf_exp.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": [
+              { "path": [ "nbf" ] }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "purpose": "Identification",
+            "options": [
+              [ "pid_credential" ]
+            ]
+          }
+        ]
+      }
+    },
     "full_pid_with_claim_sets": {
       "name": "DE National PID - PID-Check mit claim_sets + aki",
       "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
