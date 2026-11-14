@@ -54,6 +54,13 @@ openssl x509 -in cert.pem -fingerprint -sha256 -noout
 ```
 
 ## Calculate clien_id from WRPAC
+
+### WRPAC available in DER format
 ```bash
 echo -n "x509_hash:" && openssl x509 -inform DER -in access_certificate.cer -outform DER | openssl dgst -sha256 -binary | base64 | tr '+/' '-_' | tr -d '=\n'
+```
+
+### WRPAC available in PEM format
+```bash
+echo -n "x509_hash:" && openssl x509 -in access_certificate.pem | openssl dgst -sha256 -binary | base64 | tr '+/' '-_' | tr -d '=\n'
 ```
