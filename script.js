@@ -28,7 +28,7 @@ function loadScenarios() {
       }
     })
     .catch(err => {
-      console.warn("Szenarien konnten nicht geladen werden:", err);
+      console.warn("Scenarios could not be loaded from host:", err);
       fetch('/api/scenario')
         .then(r => r.json())
         .then(d => {
@@ -75,10 +75,10 @@ function onScenarioChange() {
     .then(res => res.json())
     .then(data => {
       if (data.success) {
-        console.log(`[Frontend] Szenario gewechselt zu: ${scenarioId}`);
+        console.log(`[FE] scenario was switched: ${scenarioId}`);
       }
     })
-    .catch(err => console.error("Fehler beim Szenariowechsel:", err));
+    .catch(err => console.error("Error while switching scenario:", err));
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -110,7 +110,7 @@ function switchTab(tabId) {
 function startIssuance() {
   document.getElementById('btn-initiate-issuance').disabled = true;
   document.getElementById('status-container').classList.remove('hidden');
-  document.getElementById('status-text').innerText = "Erstelle Mitarbeiter-Ausweis Angebot (OpenID4VCI)...";
+  document.getElementById('status-text').innerText = "Generating employee ID credential offer (OpenID4VCI)...";
   document.getElementById('qr-container').classList.add('hidden');
 
   const type = document.getElementById('iss-credential-type').value;
@@ -162,16 +162,16 @@ function startIssuance() {
       if (data.success) {
         activeSessionId = data.sessionId;
 
-        // QR-Code anzeigen
+        // display QR code
         document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(data.credentialOfferUrl);
         document.getElementById('qr-text').innerText = data.credentialOfferUrl;
 
-        // Session ID anzeigen
-        document.getElementById('session-title-label').innerText = "Mitarbeiter-Ausweis Session ID";
+        // display session ID
+        document.getElementById('session-title-label').innerText = "Employee ID Session ID";
         document.getElementById('session-id-display').innerText = data.sessionId;
 
         document.getElementById('qr-container').classList.remove('hidden');
-        document.getElementById('status-text').innerText = "Warte auf Wallet-Kopplung (Ausstellung)...";
+        document.getElementById('status-text').innerText = "Waiting for wallet coupling for issuance...";
 
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(() => {
@@ -181,24 +181,24 @@ function startIssuance() {
               if (statusData.status === 'SUCCESS') {
                 clearInterval(pollInterval);
                 document.getElementById('status-container').classList.add('hidden');
-                alert("Mitarbeiter-Ausweis (EAA) erfolgreich an Wallet ausgestellt!");
+                alert("Employee ID (EAA) has been successfully issues to wallet!");
                 resetUI();
               } else if (statusData.status === 'FAILED') {
                 clearInterval(pollInterval);
-                alert("Ausstellung fehlgeschlagen: " + statusData.errors.join(", "));
+                alert("Issuance has failed: " + statusData.errors.join(", "));
                 resetUI();
               }
             })
             .catch(err => console.error("Issuance polling error: ", err));
         }, 2000);
       } else {
-        alert("Sitzung konnte nicht initiiert werden.");
+        alert("Session could not be initiated");
         resetUI();
       }
     })
     .catch(err => {
       console.error(err);
-      alert("Verbindung zum Server fehlgeschlagen.");
+      alert("Connection to server has failed!");
       resetUI();
     });
 }
@@ -237,33 +237,33 @@ function startOnboarding() {
   const selectedScenario = selectElem ? selectElem.value : null;
   const url = selectedScenario ? `/api/presentation/initiate?scenario=${encodeURIComponent(selectedScenario)}` : '/api/presentation/initiate';
 
-  // Onboarding Session initiieren
+  // initiate onboarding sessions
   fetch(url)
     .then(res => res.json())
     .then(data => {
       if (data.success) {
         activeSessionId = data.sessionId;
 
-        // QR-Code anzeigen
+        // display QR code
         document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(data.qrCodeUrl);
         document.getElementById('qr-text').innerText = data.qrCodeUrl;
 
-        // Session ID anzeigen
+        // display session ID
         document.getElementById('session-id-display').innerText = data.sessionId;
 
         document.getElementById('qr-container').classList.remove('hidden');
 
-        // Polling starten
+        // start recurring polling
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(() => pollSession(data.pollEndpoint), 2000);
       } else {
-        alert("Session konnte nicht initiiert werden.");
+        alert("Session could not be initiated!");
         resetUI();
       }
     })
     .catch(err => {
       console.error(err);
-      alert("Verbindung zum Server fehlgeschlagen.");
+      alert("Connection to server has failed!");
       resetUI();
     });
 }
@@ -277,11 +277,11 @@ function pollSession(endpoint) {
         displaySuccess(data);
       } else if (data.status === 'FAILED') {
         clearInterval(pollInterval);
-        alert("Kryptografische 4-Säulen-Validierung fehlgeschlagen: " + data.errors.join(", "));
+        alert("Cryptographic validation has failed: " + data.errors.join(", "));
         resetUI();
       }
     })
-    .catch(err => console.error("Polling Fehler:", err));
+    .catch(err => console.error("Polling error:", err));
 }
 
 function displaySuccess(data) {
@@ -293,7 +293,7 @@ function displaySuccess(data) {
   const claims = data.claims || {};
   const isMdoc = data.format === 'ISO mdoc';
 
-  // Dokumenten-Header, Icon und Container anpassen
+  // adapt document header, icon and container
   const credentialHeader = document.getElementById('credential-header');
   const credentialIcon = document.getElementById('credential-icon-container');
   const credentialType = document.getElementById('credential-type');
@@ -307,12 +307,12 @@ function displaySuccess(data) {
   const p2Desc = document.getElementById('pillar2-desc');
 
   if (isMdoc) {
-    // mDL / mdoc Style
+    // mDL / mdoc style
     credentialHeader.className = "credential-header mdoc-style";
     credentialType.innerText = "EUDI Mobile Driving Licence (mDL)";
     credentialTitle.innerText = "Fahrerlaubnis (Klasse B)";
 
-    // mDL Icon (Lenkrad / Auto)
+    // mDL icon (steering wheel / car)
     credentialIcon.innerHTML = `
                     <svg class="btn-icon" style="color: white; height: 1.5rem; width: 1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -328,21 +328,21 @@ function displaySuccess(data) {
     document.getElementById('mdl-privileges').innerText = claims.driving_privileges || 'B';
     document.getElementById('mdl-country').innerText = claims.issuing_country || 'DE';
 
-    // Pillars anpassen
-    p1Desc.innerText = "Digitale Signatur des mDL-Herausgebers erfolgreich über die CBOR-Dokumentenstruktur (mso_mdoc) verifiziert. Die Authentizität der Fahrerlaubnis-Daten ist bewiesen.";
-    p2Title.innerText = "Säule 2: mdoc-Session Handover & Gerätebindung";
-    p2Desc.innerText = "Kryptografische Signatur über das SessionTranscript gemäß ISO/IEC 18013-5 erfolgreich geprüft. Die Gerätebindung schützt die Führerscheinpräsentation vor Replay-Angriffen.";
+    // adapt verification stages
+    p1Desc.innerText = "Digital issuer signature verified via CBOR doc structure (mso_mdoc)";
+    p2Title.innerText = "Stage 2: mdoc session handover & device binding";
+    p2Desc.innerText = "Cryptographic signature validated via SessionTranscript";
 
-    // mdoc Integritäts-Log befüllen
+    // populate mdoc integrity log
     document.getElementById('sd-jwt-audit').classList.add('hidden');
     document.getElementById('mdoc-audit').classList.remove('hidden');
   } else {
-    // PID / SD-JWT Style
+    // PID / SD-JWT style
     credentialHeader.className = "credential-header pid-style";
     credentialType.innerText = "EUDI Personal Identification Data (PID)";
-    credentialTitle.innerText = "Personen-Identitätsnachweis";
+    credentialTitle.innerText = "Personen identity";
 
-    // PID Icon (Ausweis)
+    // PID Icon (ID)
     credentialIcon.innerHTML = `
                     <svg class="btn-icon" style="color: white; height: 1.5rem; width: 1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.333 0 4 .667 4 2V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-1c0-1.333 2.667-2 4-2z" />
@@ -354,8 +354,8 @@ function displaySuccess(data) {
 
     if (claims.employee_id || claims.role || claims.department) {
       credentialHeader.className = "credential-header pid-style";
-      credentialType.innerText = "EUDI Company Employee ID";
-      credentialTitle.innerText = "Mitarbeiter-Ausweis";
+      credentialType.innerText = "EUDI Sample Company Employee ID";
+      credentialTitle.innerText = "Employee ID Card";
       document.getElementById('claim-given_name').innerText = claims.given_name || 'N/A';
       document.getElementById('claim-family_name').innerText = claims.family_name || 'N/A';
       document.getElementById('claim-birthdate').innerText = claims.employee_id ? claims.employee_id : (claims.birthdate || 'N/A');
@@ -365,7 +365,7 @@ function displaySuccess(data) {
       document.getElementById('claim-given_name').innerText = claims.given_name || 'N/A';
       document.getElementById('claim-family_name').innerText = claims.family_name || 'N/A';
       document.getElementById('claim-birthdate').innerText = claims.birthdate || claims.birth_date || 'N/A';
-      document.getElementById('claim-is_over_18').innerText = claims.is_over_18 === true ? 'Ja (über 18 Jahre)' : 'Nein';
+      document.getElementById('claim-is_over_18').innerText = claims.is_over_18 === true ? 'Yes (over 18y)' : 'No';
       document.getElementById('claim-nationalities').innerText = Array.isArray(claims.nationalities) ? claims.nationalities.join(", ") : (claims.nationalities || 'N/A');
     }
 
@@ -380,12 +380,12 @@ function displaySuccess(data) {
       document.getElementById('claim-address').innerText = address || 'N/A';
     }
 
-    // Pillars auf PID zurücksetzen
-    p1Desc.innerText = "Digitale ECDSA-P256-Signatur des PID-Herausgebers (Bundesdruckerei) erfolgreich verifiziert. Die Hashes im übergebenen SD-JWT-Ausweis stimmen mathematisch überein.";
-    p2Title.innerText = "Säule 2: Gerätebindung (Device / Holder Key Binding)";
-    p2Desc.innerText = "Die kryptografische Geräteprüfung wurde erfolgreich validiert. Die Bindung an das hardwarebasierte Secure Element des Nutzers ist bewiesen.";
+    // reset stages for PID
+    p1Desc.innerText = "Digital issuer signature verified successfully";
+    p2Title.innerText = "Stage 2: Device / Holder Key Binding";
+    p2Desc.innerText = "Device binding has been verified successfully";
 
-    // SD-JWT Integritäts-Log befüllen
+    // populate SD-JWT integrity log
     document.getElementById('sd-jwt-audit').classList.remove('hidden');
     document.getElementById('mdoc-audit').classList.add('hidden');
 
@@ -410,7 +410,7 @@ function displaySuccess(data) {
                         <td style="color: var(--text-primary); font-weight: 600;">${val}</td>
                         <td style="color: var(--text-secondary);">${salt}</td>
                         <td style="font-family: monospace; font-size: 0.7rem; color: var(--text-secondary);">${item.hash}</td>
-                        <td style="text-align: right; color: var(--success-color); font-weight: bold;">✔ Bestanden</td>
+                        <td style="text-align: right; color: var(--success-color); font-weight: bold;">✔ Passed</td>
                     `;
       disclosureBody.appendChild(tr);
     });
@@ -427,25 +427,25 @@ function displaySuccess(data) {
         div.className = "hidden-hash-item";
         div.innerHTML = `
                             <span style="font-family: monospace; font-size: 0.7rem;">SHA-256: ${hash}</span>
-                            <span class="hidden-hash-badge">Minimiert (Versteckt)</span>
+                            <span class="hidden-hash-badge">Minimized / hidden</span>
                         `;
         hiddenList.appendChild(div);
       }
     });
 
     if (hiddenCount === 0) {
-      hiddenList.innerHTML = `<p style="font-size: 0.75rem; color: var(--text-secondary); font-style: italic;">Keine unenthüllten Attribute. Alle übermittelten Hashes wurden offengelegt.</p>`;
+      hiddenList.innerHTML = `<p style="font-size: 0.75rem; color: var(--text-secondary); font-style: italic;">No undisclosed attributes</p>`;
     }
   }
 
-  // Transportkanal und Verschlüsselungskarte aktualisieren
+  // update transport channel and encryption card
   const transportCard = document.getElementById('transport-security-card');
   const iconContainer = document.getElementById('transport-icon-container');
   const badge = document.getElementById('transport-badge');
   const desc = document.getElementById('transport-desc');
 
   if (data.isEncrypted) {
-    // JWE-Verschlüsselter Status
+    // JWE-encrypted status
     transportCard.className = "transport-security-card encrypted-style";
     iconContainer.className = "transport-icon-wrapper encrypted";
     iconContainer.innerHTML = `
@@ -454,10 +454,10 @@ function displaySuccess(data) {
                     </svg>
                 `;
     badge.className = "transport-badge encrypted";
-    badge.innerText = "Ende-zu-Ende verschlüsselt (JWE)";
-    desc.innerText = "Die Identitätsdaten wurden auf Anwendungsebene via JSON Web Encryption (JWE) mit dem elliptischen ECDH-Sitzungsschlüssel der Onboarding-Sitzung verschlüsselt. Ein Mitlesen der personenbezogenen Daten auf dem Callback-Kanal (direct_post.jwt) war unmöglich.";
+    badge.innerText = "Encrypted (JWE)";
+    desc.innerText = "Identity data is encrypted (JWE)";
   } else {
-    // Unverschlüsselter Status (Plain Fallback / Mock)
+    // unencrypted status (plain fallback / mock)
     transportCard.className = "transport-security-card plain-style";
     iconContainer.className = "transport-icon-wrapper plain";
     iconContainer.innerHTML = `
@@ -466,8 +466,8 @@ function displaySuccess(data) {
                     </svg>
                 `;
     badge.className = "transport-badge plain";
-    badge.innerText = "Fallback-Kanal (Unverschlüsselt)";
-    desc.innerText = "Die Identitätsdaten wurden im Klartext über den unverschlüsselten direct_post Endpoint empfangen. Dies ist der Fallback-Kanal für unkomplizierte lokale Demozwecke und Shell-basierte Wallet-Simulationsskripte im Test-Harness.";
+    badge.innerText = "Fallback (unencrypted)";
+    desc.innerText = "Data was transmitted als clear text / unencrypted";
   }
 }
 
@@ -508,7 +508,7 @@ function copySessionId() {
   };
 
   const errorHandler = (err) => {
-    console.error('Kopieren fehlgeschlagen: ', err);
+    console.error('Copy failed: ', err);
     const displaySpan = document.getElementById('session-id-display');
     if (displaySpan) {
       const range = document.createRange();
