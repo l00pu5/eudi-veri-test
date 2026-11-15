@@ -461,7 +461,7 @@ VCT value: `urn:eudi:pid:de:1`
 
 ### 3. Age Attestations
 
-- `age_equal_or_over` (boolean) - flag, possible values: [12, 14, 16, 18, 21, 65]
+- `age_equal_or_over` (boolean) - flag, possible values: [12, 13, 14, 16, 18, 21, 65]
 - `age_in_years` - calculated age
 - `age_birth_year` - birth year
 
@@ -542,10 +542,10 @@ Note: additional age flags (age_over_21, age_over_65) may be added with the fina
 ### 4. Domestic Namespace (eu.europa.ec.eudi.pid.de.1)
 
 - `academic_title` - academic degree
-- `also_known_as` - alternative / artist name of the person
+- (deprecated) `also_known_as` - alternative / artist name of the person
 - `birth_name` - birth name
 - `place_of_birth.no_place_info` - boolean flag for cases where no place of birth is registered (e.g. historic reason, foreign registers)
-- `age_over_n` [12, 14, 16, 18, 21, 65] - age flags
+- `age_over_n` [12, 13, 14, 16, 18, 21, 65] - age flags
 - `birth_date` - date of birth with inclusion of "00" as valid values for day and month in case the precise date is not known
 - `source_document_type` - source document type (ID = DE eID, AS/AF = residence permit, UB = EU citizen ID)
 
