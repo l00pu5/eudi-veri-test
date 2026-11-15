@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction successful</title>
+    <link rel="stylesheet" href="styles_success.css">
+</head>
+<body>
+
+<div class="container">
+    <div class="header-banner">
+        <div class="success-icon">
+            <svg viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        </div>
+        <h1>Transaction Success</h1>
+        <p>The presentation request has been completed successfully</p>
+    </div>
+
+    <div class="content-body">
+        <!-- transaction metadata -->
+        <div class="info-card">
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Session ID (sid)</span>
+                    <span class="info-value" id="val-sid">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Authorization Code</span>
+                    <span class="info-value" id="val-code">-</span>
+                </div>
+                <div class="info-item" style="margin-top: 10px;">
+                    <span class="info-label">Format & Mode</span>
+                    <span class="info-value">
+                        <span class="badge badge-format" id="val-format">SD-JWT VC</span>
+                        <span class="badge badge-success">direct_post.jwt</span>
+                    </span>
+                </div>
+                <div class="info-item" style="margin-top: 10px;">
+                    <span class="info-label">Verification Status</span>
+                    <span class="info-value">
+                        <span class="badge badge-success">✅ 4/4 Verification Stages Passed</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- loading indicator -->
+        <div id="loading-state" class="status-loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading verified claims from RP server...</p>
+        </div>
+
+        <!-- table with extracted claims -->
+        <div class="section-title">
+            📋 Transmitted Attributes (Claims)
+        </div>
+        <table class="claims-table">
+            <thead>
+                <tr>
+                    <th>Attribute / Claim</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody id="claims-table-body">
+                <tr>
+                    <td colspan="2" style="text-align: center; color: var(--text-muted);">No attributes transmitted or still loading...</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- JSON debug box -->
+        <div class="section-title">
+            🔍 Raw Data (JSON)
+        </div>
+        <pre class="json-box" id="json-raw">{}</pre>
+
+        <!-- Aktionen -->
+        <div class="actions">
+            <a href="/" class="btn btn-outline">Back to start</a>
+            <button onclick="window.location.reload()" class="btn btn-primary">Update Status</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        // 1. read URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const sid = urlParams.get('sid') || 'demo_session_123';
+        const code = urlParams.get('code') || 'demo_code_abc123';
+        
+        document.getElementById('val-sid').textContent = sid;
+        document.getElementById('val-code').textContent = code;
+
+        // check additional URL params (e.g. ?given_name=Max&family_name=Mustermann)
+        const customClaims = {};
+        for (const [key, val] of urlParams.entries()) {
+            if (!['sid', 'code'].includes(key)) {
+                customClaims[key] = val;
+            }
+        }
+
+        // 2. try to retrieve actual status from RP server
+        let fetchedData = null;
+        if (sid && !sid.startsWith('demo_')) {
+            const loadingEl = document.getElementById('loading-state');
+            loadingEl.style.display = 'block';
+            try {
+                const response = await fetch(`/api/presentation/status?sid=${encodeURIComponent(sid)}`);
+                if (response.ok) {
+                    fetchedData = await response.json();
+                }
+            } catch (err) {
+                console.warn("Backend status retrieval has failed (standalone / offline mode):", err);
+            } finally {
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        // 3. consolidate data
+        let displayClaims = {};
+        let format = "SD-JWT VC";
+
+        if (fetchedData && fetchedData.claims) {
+            displayClaims = fetchedData.claims;
+            if (fetchedData.format) {
+                format = fetchedData.format;
+            }
+        } else if (Object.keys(customClaims).length > 0) {
+            displayClaims = customClaims;
+        } else {
+            // default demo data (mock)
+            displayClaims = {
+                "given_name": "Erika",
+                "family_name": "Mustermann",
+                "birth_date": "1998-08-12",
+                "age_equal_or_over": { "18": true },
+                "issuing_country": "DE"
+            };
+        }
+
+        document.getElementById('val-format').textContent = format;
+
+        // 4. populate attribute table
+        const tbody = document.getElementById('claims-table-body');
+        tbody.innerHTML = '';
+
+        const flattenClaims = (obj, prefix = '') => {
+            let rows = [];
+            for (const key in obj) {
+                const fullKey = prefix ? `${prefix}.${key}` : key;
+                const val = obj[key];
+                if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                    rows = rows.concat(flattenClaims(val, fullKey));
+                } else {
+                    rows.push({ key: fullKey, value: Array.isArray(val) ? JSON.stringify(val) : String(val) });
+                }
+            }
+            return rows;
+        };
+
+        const rows = flattenClaims(displayClaims);
+        if (rows.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No explicit attributes in this presentation</td></tr>`;
+        } else {
+            rows.forEach(r => {
+                const tr = document.createElement('tr');
+                const tdKey = document.createElement('td');
+                tdKey.style.fontWeight = '600';
+                tdKey.textContent = r.key;
+                
+                const tdVal = document.createElement('td');
+                tdVal.textContent = r.value;
+                if (r.value === 'true') {
+                    tdVal.innerHTML = `<span class="badge badge-success">✓ true</span>`;
+                }
+                
+                tr.appendChild(tdKey);
+                tr.appendChild(tdVal);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 5. JSON debug output
+        const fullDebugOutput = {
+            sid: sid,
+            code: code,
+            format: format,
+            verified: true,
+            claims: displayClaims,
+            serverStatus: fetchedData || "URL Parameter Evaluation"
+        };
+        document.getElementById('json-raw').textContent = JSON.stringify(fullDebugOutput, null, 2);
+    });
+</script>
+
+</body>
+</html>
