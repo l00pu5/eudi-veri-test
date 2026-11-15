@@ -33,8 +33,8 @@
       }
     },
     "pid_age_18_a": {
-      "name": "DE PID - age verification - incorrect option value",
-      "description": "Fordert Angaben aus der deutschen PID an; options ist inkorrekt deklariert",
+      "name": "DE PID - age verification - incorrect options value",
+      "description": "Fordert Angaben aus der deutschen PID an; options in credential_sets ist inkorrekt deklariert",
       "certs": {
         "accessCertificate": "certs/access_certificate_02.cer",
         "accessPrivateKey": "certs/access_certificate_key_02.pem",
