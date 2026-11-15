@@ -2,8 +2,70 @@
   "defaultScenario": "pid_age_18",
   "scenarios": {
     "pid_age_18": {
-      "name": "DE National PID - Altersnachweis (18+)",
-      "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
+      "name": "DE PID - age verification",
+      "description": "Fordert Angaben aus der deutschen PID an",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_name_age.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": [
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "age_equal_or_over", "18" ] }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "purpose": "Identification",
+            "options": [
+              [ "pid_age_credential" ]
+            ]
+          }
+        ]
+      }
+    },
+    "pid_age_18_a": {
+      "name": "DE PID - age verification - incorrect option value",
+      "description": "Fordert Angaben aus der deutschen PID an; options ist inkorrekt deklariert",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_name_age.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": [
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "age_equal_or_over", "18" ] }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "purpose": "Identification",
+            "options": [
+              [ "pid_age" ]
+            ]
+          }
+        ]
+      }
+    },
+    "pid_age_18_b": {
+      "name": "DE PID - age verification - Untrusted X5C Chain",
+      "description": "Fordert Angaben aus der deutschen PID an; veraltete Zertifikate ohne CRL DPs",
       "certs": {
         "accessCertificate": "certs/access_certificate.cer",
         "accessPrivateKey": "certs/access_certificate_key.pem",
@@ -32,9 +94,40 @@
         ]
       }
     },
-    "pid_given_name_only": {
-      "name": "DE National PID - given_name",
-      "description": "Fordert Vorname aus der deutschen PID an.",
+    "pid_age_18_oa": {
+      "name": "DE PID - age verification - Overasking",
+      "description": "Fordert Angaben aus der deutschen PID an; Overasking",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_02.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": [
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "age_equal_or_over", "18" ] }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "purpose": "Identification",
+            "options": [
+              [ "pid_age_credential" ]
+            ]
+          }
+        ]
+      }
+    },
+    "pid_given_name_only_b": {
+      "name": "DE PID - given_name - Untrusted X5C Chain",
+      "description": "Fordert Vorname aus der deutschen PID an; veraltete Zertifikate ohne CRL DPs",
       "certs": {
         "accessCertificate": "certs/access_certificate.cer",
         "accessPrivateKey": "certs/access_certificate_key.pem",
@@ -61,8 +154,37 @@
         ]
       }
     },
+    "pid_given_name_only": {
+      "name": "DE PID - given_name",
+      "description": "Fordert Vorname aus der deutschen PID an; aktuelle Zertifikate",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_02.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": [
+              { "path": [ "given_name" ] }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "purpose": "Identification",
+            "options": [
+              [ "pid_credential" ]
+            ]
+          }
+        ]
+      }
+    },
     "pid_nbf": {
-      "name": "DE National PID - nbf",
+      "name": "DE PID - nbf",
       "description": "Fordert nbf aus der deutschen PID an.",
       "certs": {
         "accessCertificate": "certs/access_certificate_02.cer",
@@ -91,8 +213,8 @@
       }
     },
     "full_pid_with_claim_sets": {
-      "name": "DE National PID - PID-Check mit claim_sets + aki",
-      "description": "Fordert Vorname, Nachname und die Bestätigung 'age_equal_or_over 18' aus der deutschen PID an.",
+      "name": "DE PID - Full PID with claim_sets + aki",
+      "description": "Fordert Daten aus der deutschen PID an; testet credential_sets + aki",
       "certs": {
         "accessCertificate": "certs/access_certificate_02.cer",
         "accessPrivateKey": "certs/access_certificate_key_02.pem",
@@ -135,7 +257,7 @@
       }
     },
     "pid_mdoc_age_18": {
-      "name": "EUDI PID (ISO mdoc) - Altersnachweis (18+)",
+      "name": "DE PID (mdoc) - age verification (18) - Untrusted X5C Chain",
       "description": "Fordert Vorname, Nachname und die Bestätigung 'age_over_18' aus der PID im ISO mdoc-Format an.",
       "certs": {
         "accessCertificate": "certs/access_certificate_mdoc.cer",
@@ -158,7 +280,7 @@
       }
     },
     "pid_full_identity": {
-      "name": "DE National PID - Vollständige Identität",
+      "name": "DE PID - Full PID - invalid signature",
       "description": "Fordert Vorname, Nachname, Geburtsdatum und Wohnort aus der deutschen PID an.",
       "certs": {
         "accessCertificate": "certs/access_certificate.pem",
@@ -184,7 +306,7 @@
         "credential_sets": [
           {
             "options": [
-              [ "pid_full_crdential" ]
+              [ "pid_full_credential" ]
             ]
           }
         ]
