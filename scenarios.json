@@ -565,6 +565,13 @@
           }
         ]
       }
-    }
+    },
+    "pid_scope_presentation": { 
+      "name": "DE National PID - Scope-basierte Abfrage", 
+      "description": "Fordert die PID unter Verwendung des 'scope'-Parameters anstelle einer 'dcql_query' an.", 
+      "certs": { "accessCertificate": "certs/access_certificate.pem", 
+      "accessPrivateKey": "certs/access_certificate_key.pem", 
+      "registrationCertificate": "certs/registration_certificate.jwt" }, 
+      "payloadOverrides": { "dcql_query": null, "scope": "eu.europa.ec.eudi.pid.1" } }
   }
 }
