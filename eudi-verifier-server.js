@@ -762,6 +762,35 @@ app.get('/api/presentation/request-jwt', (req, res) => {
     jwtHeader.x5c = [rpSigningCertBase64];
   }
 
+  // apply overrides from scenario definition
+  if (activeScenario) {
+    if (activeScenario.headerOverrides && typeof activeScenario.headerOverrides === 'object') {
+      console.log(`[RP] applying headerOverrides from scenario "${activeScenarioId}"...`);
+      for (const [k, v] of Object.entries(activeScenario.headerOverrides)) {
+        if (v === null || v === '__DELETE__') {
+          delete jwtHeader[k];
+          console.log(`  - header field deleted: '${k}'`);
+        } else {
+          jwtHeader[k] = v;
+          console.log(`  - header field overwritten: '${k}' = ${JSON.stringify(v)}`);
+        }
+      }
+    }
+
+    if (activeScenario.payloadOverrides && typeof activeScenario.payloadOverrides === 'object') {
+      console.log(`[RP] applying payloadOverrides from scenario "${activeScenarioId}"...`);
+      for (const [k, v] of Object.entries(activeScenario.payloadOverrides)) {
+        if (v === null || v === '__DELETE__') {
+          delete requestPayload[k];
+          console.log(`  - payload field deleted: '${k}'`);
+        } else {
+          requestPayload[k] = v;
+          console.log(`  - payload field overwritten: '${k}' = ${JSON.stringify(v)}`);
+        }
+      }
+    }
+  }
+
   try {
     const tokenInput = `${Buffer.from(JSON.stringify(jwtHeader)).toString('base64url')}.${Buffer.from(JSON.stringify(requestPayload)).toString('base64url')}`;
 

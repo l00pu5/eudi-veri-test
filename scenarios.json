@@ -477,6 +477,94 @@
           } 
         ] 
       } 
+    },
+    "malformed_missing_nonce": {
+      "name": "Negative Test: Fehlendes Nonce-Feld",
+      "description": "Testet die Ablehnung durch die Wallet, wenn das Pflichtfeld 'nonce' im Request Object fehlt.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "payloadOverrides": {
+        "nonce": null
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": ["urn:eudi:pid:de:1"] },
+            "claims": [ { "path": ["given_name"] } ]
+          }
+        ]
+      }
+    },
+    "malformed_scope_dcql_conflict": {
+      "name": "Negative Test: Konflikt scope & dcql_query",
+      "description": "Testet die Ablehnung (invalid_request), wenn sowohl 'dcql_query' als auch 'scope' im Request Object deklariert sind.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "payloadOverrides": {
+        "scope": "pid"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": ["urn:eudi:pid:de:1"] },
+            "claims": [ { "path": ["given_name"] } ]
+          }
+        ]
+      }
+    },
+    "malformed_invalid_header_typ": {
+      "name": "Negative Test: Ungültiger JOSE Header typ",
+      "description": "Testet die Wallet-Reaktion bei abweichendem/ungültigem 'typ'-Header im JWS (z. B. 'invalid-req-type').",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "headerOverrides": {
+        "typ": "invalid-req-type"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": ["urn:eudi:pid:de:1"] },
+            "claims": [ { "path": ["given_name"] } ]
+          }
+        ]
+      }
+    },
+    "malformed_invalid_response_mode": {
+      "name": "Negative Test: Ungültiger response_mode",
+      "description": "Testet die Ablehnung, wenn ein nicht-unterstützter response_mode (z. B. 'plain_post') gefordert wird.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.pem",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "payloadOverrides": {
+        "response_mode": "plain_post"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": ["urn:eudi:pid:de:1"] },
+            "claims": [ { "path": ["given_name"] } ]
+          }
+        ]
+      }
     }
   }
 }
