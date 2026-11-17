@@ -32,6 +32,37 @@
         ]
       }
     },
+    "pid_invalid_claim": {
+      "name": "DE PID - invalid claim",
+      "description": "Fordert Angaben aus der deutschen PID an; Claim ist invalide, aber im WRPRC deklariert",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_invaölid_claim.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": [
+              { "path": [ "bla_bla_bla" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "age_equal_or_over", "18" ] }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "purpose": "Identification",
+            "options": [
+              [ "pid_age_credential" ]
+            ]
+          }
+        ]
+      }
+    },
     "pid_age_18_a": {
       "name": "DE PID - age verification - incorrect options value",
       "description": "Fordert Angaben aus der deutschen PID an; options in credential_sets ist inkorrekt deklariert",
