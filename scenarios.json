@@ -32,6 +32,37 @@
         ]
       }
     },
+    "pid_age_expired_cert": {
+      "name": "DE PID - age verification - old sandbox certificate",
+      "description": "Fordert Angaben aus der deutschen PID an",
+      "certs": {
+        "accessCertificate": "certs/access_certificate.cer",
+        "accessPrivateKey": "certs/access_certificate_key.pem",
+        "registrationCertificate": "certs/registration_certificate.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": [
+              { "path": [ "given_name" ] },
+              { "path": [ "family_name" ] },
+              { "path": [ "age_equal_or_over", "18" ] }
+            ]
+          }
+        ],
+        "credential_sets": [
+          {
+            "purpose": "Identification",
+            "options": [
+              [ "pid_age_credential" ]
+            ]
+          }
+        ]
+      }
+    },
     "pid_invalid_claim": {
       "name": "DE PID - invalid claim",
       "description": "Fordert Angaben aus der deutschen PID an; Claim ist invalide, aber im WRPRC deklariert",
