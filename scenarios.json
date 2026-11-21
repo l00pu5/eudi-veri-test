@@ -32,6 +32,51 @@
         ]
       }
     },
+    "pid_mdoc_name": {
+      "name": "DE PID (mdoc) - name",
+      "description": "Fordert Vorname, Nachname aus der PID im ISO mdoc-Format an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_mdoc_name.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_mdoc_credential",
+            "format": "mso_mdoc",
+            "meta": { "doctype_value": "eu.europa.ec.eudi.pid.1" },
+            "claims": [
+              { "path": [ "eu.europa.ec.eudi.pid.1", "family_name" ] },
+              { "path": [ "eu.europa.ec.eudi.pid.1", "given_name" ] }
+            ]
+          }
+        ]
+      }
+    },
+    "pid_mdoc_name2": {
+      "name": "DE PID (mdoc) - name + birth_name",
+      "description": "Fordert Vorname, Nachname und Geburtsname aus der PID im ISO mdoc-Format an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_mdoc_name2.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_mdoc_credential",
+            "format": "mso_mdoc",
+            "meta": { "doctype_value": "eu.europa.ec.eudi.pid.1" },
+            "claims": [
+              { "path": [ "eu.europa.ec.eudi.pid.1", "family_name" ] },
+              { "path": [ "eu.europa.ec.eudi.pid.1", "given_name" ] },
+              { "path": [ "eu.europa.ec.eudi.pid.de.1", "birth_name" ] }
+            ]
+          }
+        ]
+      }
+    },
     "pid_age_expired_cert": {
       "name": "DE PID - age verification - old sandbox certificate",
       "description": "Fordert Angaben aus der deutschen PID an",
