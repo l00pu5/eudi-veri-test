@@ -5,18 +5,18 @@
       "name": "Employee Badge Card (EAA / SD-JWT VC)",
       "description": "Stellt einen digitalen Mitarbeiter-Ausweis (EAA) im SD-JWT VC Format aus",
       "certs": {
-        "accessCertificate": "certs/issuer_access_certificate.pem",
-        "accessPrivateKey": "certs/issuer_access_certificate_key.pem",
-        "registrationCertificate": "certs/issuer_registration_certificate.jwt"
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_issuance_employee_card.jwt"
       },
       "credentialType": "employee_sd_jwt",
       "vct": "urn:company:employee_id:1",
       "defaultClaims": {
-        "given_name": "Erika",
-        "family_name": "Mustermann",
-        "employee_id": "EMP-2026-9941",
-        "department": "IT Infrastructure & Security",
-        "role": "Senior System Architect",
+        "given_name": "Sebastian",
+        "family_name": "Block",
+        "employee_id": "EMP-1234-5678",
+        "department": "Support Organization",
+        "role": "Master of Disaster",
         "country": "DE"
       }
     }
