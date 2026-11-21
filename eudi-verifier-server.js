@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { EUDIVerifier } = require('./eudi-verifier-helper');
-const { EUDIPIDIssuerVerifier } = require('./eudi-issuer-verifier');
+const { EUDIPIDIssuerVerifier } = require('./eudi-issuer-verifier2');
 const { Logger, log_middleware } = require("./util/logger.js");
 
 // set up app instance
@@ -42,8 +42,9 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Headers', '*');
   next();
 });
+app.use(bodyParser.json({ type: "application/json" }));
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.text({ type: ["application/jwt", "text/plain"] }));
 
 // logging middleware
 app.use(log_middleware);
@@ -57,18 +58,15 @@ app.get('/', (req, res) => {
 });
 
 // route for serving the error page
-app.get(['/error.html', '/error'], (req, res) => {
-  const txtFile = path.join(__dirname, 'error.html.txt');
-  const htmlFile = path.join(__dirname, 'error.html');
-  if (fs.existsSync(txtFile)) {
+app.get('/error.html', (req, res) => {
+  const errorFile = path.join(__dirname, 'error.html');
+  if (fs.existsSync(errorFile)) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.sendFile(txtFile);
-  }
-  if (fs.existsSync(htmlFile)) {
+    res.sendFile(errorFile);
+  } else {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res.sendFile(htmlFile);
+    res.sendFile(path.join(__dirname, 'index.html'));
   }
-  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // session management for storing nonces + verification results
@@ -336,6 +334,199 @@ function switchScenario(scenarioId) {
 
 loadScenarioAndCertificates();
 
+// =============================================================================
+// ISSUANCE SCENARIO & CERT MANAGEMENT (issuance_scenarios.json)
+// =============================================================================
+
+let allIssuanceScenariosMap = {};
+let activeIssuanceScenario = null;
+let activeIssuanceScenarioId = '';
+
+let issuerAccessCertDerBuffer;
+let issuerAccessCertPrivateKeyPem;
+let issuerRegistrationCertDerBuffer;
+let issuerRegistrationJwtString = null;
+let issuerClientIdX509Hash = '';
+let issuerX5cHeaderArray = [];
+let issuerInfoArray = [];
+
+function getRequestedIssuanceScenarioId() {
+  const args = process.argv.slice(2);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--issuance-scenario=')) {
+      return arg.split('=')[1].trim();
+    }
+  }
+  return process.env.ISSUANCE_SCENARIO || null;
+}
+
+function loadIssuanceScenarioAndCertificates() {
+  console.log('[ISS] loading issuance scenarios from: issuance_scenarios.json...');
+  const scenariosPath = path.join(__dirname, 'issuance_scenarios.json');
+  let scenariosData = null;
+
+  if (fs.existsSync(scenariosPath)) {
+    try {
+      scenariosData = JSON.parse(fs.readFileSync(scenariosPath, 'utf8'));
+      console.log('[ISS] issuance_scenarios.json parsed successfully');
+    } catch (err) {
+      console.error('[ISS] error while parsing issuance_scenarios.json:', err.message);
+    }
+  } else {
+    console.warn('[ISS] issuance_scenarios.json not found; using fallback');
+  }
+
+  const scenarios = scenariosData?.scenarios || {
+    "eaa_employee_id": {
+      "name": "Mitarbeiter-Ausweis (EAA / SD-JWT VC)",
+      "description": "Stellt einen digitalen Mitarbeiter-Ausweis (EAA) im SD-JWT VC Format aus.",
+      "certs": {
+        "accessCertificate": "certs/issuer_access_certificate.pem",
+        "accessPrivateKey": "certs/issuer_access_certificate_key.pem",
+        "registrationCertificate": "certs/issuer_registration_certificate.jwt"
+      },
+      "credentialType": "employee_sd_jwt",
+      "vct": "urn:company:employee_id:1",
+      "defaultClaims": {
+        "given_name": "Erika",
+        "family_name": "Mustermann",
+        "employee_id": "EMP-2026-9941",
+        "department": "IT Infrastructure & Security",
+        "role": "Senior System Architect"
+      }
+    }
+  };
+
+  const requestedId = getRequestedIssuanceScenarioId();
+  const defaultId = scenariosData?.defaultScenario || Object.keys(scenarios)[0];
+
+  if (requestedId && scenarios[requestedId]) {
+    activeIssuanceScenarioId = requestedId;
+    console.log(`[ISS] selected scenario via CLI/ENV: "${activeIssuanceScenarioId}"`);
+  } else {
+    if (requestedId) {
+      console.warn(`[ISS] scenario ID "${requestedId}" noz found issuance_scenarios.json gefunden; using default`);
+    }
+    activeIssuanceScenarioId = defaultId;
+    console.log(`[ISS] selected default scenario: "${activeIssuanceScenarioId}"`);
+  }
+
+  allIssuanceScenariosMap = scenarios;
+  activeIssuanceScenario = scenarios[activeIssuanceScenarioId];
+
+  console.log(`================================================================`);
+  console.log(`  ACTIVE ISSUANCE SCENARIO: [ ${activeIssuanceScenarioId} ]`);
+  console.log(`  Name        : ${activeIssuanceScenario?.name || 'Unknown'}`);
+  console.log(`  Description : ${activeIssuanceScenario?.description || 'None'}`);
+  console.log(`================================================================\n`);
+
+  loadCertificatesForIssuanceScenario(activeIssuanceScenario?.certs);
+}
+
+function loadCertificatesForIssuanceScenario(certsConfig = {}) {
+  const certsDir = path.join(__dirname, 'certs');
+
+  const accessCertPath = certsConfig.accessCertificate
+    ? path.resolve(__dirname, certsConfig.accessCertificate)
+    : path.join(certsDir, 'issuer_access_certificate.pem');
+
+  const accessKeyPath = certsConfig.accessPrivateKey
+    ? path.resolve(__dirname, certsConfig.accessPrivateKey)
+    : path.join(certsDir, 'issuer_access_certificate_key.pem');
+
+  const regCertPath = certsConfig.registrationCertificate
+    ? path.resolve(__dirname, certsConfig.registrationCertificate)
+    : path.join(certsDir, 'issuer_registration_certificate.jwt');
+
+  let loadedAccess = false;
+
+  try {
+    if (fs.existsSync(accessKeyPath)) {
+      issuerAccessCertPrivateKeyPem = fs.readFileSync(accessKeyPath, 'utf8');
+      console.log('[ISS CERT] private key loaded from:', path.basename(accessKeyPath));
+    }
+    else {
+      console.log("[ISS CERT] unable to load private key from:", accessKeyPath);
+    }
+
+    if (fs.existsSync(accessCertPath) && issuerAccessCertPrivateKeyPem) {
+      const rawContent = fs.readFileSync(accessCertPath);
+      const x509 = new crypto.X509Certificate(rawContent);
+      issuerAccessCertDerBuffer = x509.raw;
+      loadedAccess = true;
+      console.log('[ISS CERT] access certificate loaded from:', path.basename(accessCertPath));
+    }
+    else {
+      console.log("[ISS CERT] unable to load access cert from:", accessCertPath);
+    }
+  } catch (e) {
+    console.warn('[ISS CERT] error while loading access certificate:', e.message);
+  }
+
+  issuerRegistrationJwtString = null;
+  try {
+    if (fs.existsSync(regCertPath)) {
+      const content = fs.readFileSync(regCertPath, 'utf8').trim();
+      if (content.startsWith('eyJ')) {
+        issuerRegistrationJwtString = content;
+        console.log('[ISS CERT] isser reg cert (JWT) loaded from:', path.basename(regCertPath));
+      } else {
+        issuerRegistrationCertDerBuffer = fs.readFileSync(regCertPath);
+        console.log('[ISS CERT] issuer reg cert (DER) loaded from:', path.basename(regCertPath));
+      }
+    }
+  } catch (e) {
+    console.warn('[ISS CERT] error while loading reg cert:', e.message);
+  }
+
+  if (!loadedAccess) {
+    console.log('[ISS CERT] synthesizing access cert & private key (demo fallback)...');
+    const keyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    issuerAccessCertPrivateKeyPem = keyPair.privateKey.export({ type: 'sec1', format: 'pem' });
+    issuerAccessCertDerBuffer = Buffer.concat([Buffer.from([0x30, 0x82, 0x01, 0x20]), crypto.randomBytes(284)]);
+  }
+
+  const sha256Hash = crypto.createHash('sha256').update(issuerAccessCertDerBuffer).digest();
+  issuerClientIdX509Hash = 'x509_hash:' + sha256Hash.toString('base64url');
+  console.log('[ISS CERT] HAIP issuer_client_id:', issuerClientIdX509Hash);
+
+  issuerX5cHeaderArray = [issuerAccessCertDerBuffer.toString('base64')];
+
+  if (issuerRegistrationJwtString) {
+    issuerInfoArray = [
+      {
+        format: 'registration_cert',
+        data: issuerRegistrationJwtString
+      }
+    ];
+  } else {
+    if (!issuerRegistrationCertDerBuffer) {
+      issuerRegistrationCertDerBuffer = Buffer.concat([Buffer.from([0x30, 0x82, 0x01, 0x20]), crypto.randomBytes(284)]);
+    }
+    issuerInfoArray = [
+      {
+        format: 'registration_cert',
+        data: issuerRegistrationCertDerBuffer.toString('base64')
+      }
+    ];
+  }
+}
+
+function switchIssuanceScenario(scenarioId) {
+  if (!scenarioId || !allIssuanceScenariosMap[scenarioId]) {
+    console.warn(`[ISS SCEN] scenario ID "${scenarioId}" not found`);
+    return false;
+  }
+  activeIssuanceScenarioId = scenarioId;
+  activeIssuanceScenario = allIssuanceScenariosMap[scenarioId];
+  loadCertificatesForIssuanceScenario(activeIssuanceScenario.certs);
+  console.log(`[ISS SCEN] dynamic switch to scenario: "${activeIssuanceScenarioId}" (${activeIssuanceScenario.name || ''})`);
+  return true;
+}
+
+loadIssuanceScenarioAndCertificates();
+
 // RP configuration
 const RP_CONFIG = {
   clientId: clientIdX509Hash || 'x509_hash:demo',
@@ -346,7 +537,7 @@ const RP_CONFIG = {
 
 // issuer configuration
 const ISSUER_CONFIG = {
-  issuerId: process.env.ISSUER_ID || `http://localhost:${PORT}/api/issuance`, // dynamic IssuerId mathcing the server host
+  issuerId: process.env.ISSUER_ID || `http://localhost:${PORT}/api/issuance`, // dynamic IssuerId matching the server host
   publicUrl: process.env.PUBLIC_URL || `http://localhost:${PORT}`,
   trustedWalletKeys: []
 };
@@ -379,8 +570,10 @@ try {
 }
 
 try {
+  // console.log("⚠️ creating demo keys");
   demoIssuerKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
   demoWalletKeys = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  // console.log("🔎", demoIssuerKeys);
 
   // populate trust store
   RP_CONFIG.trustedIssuerKeys.push(demoIssuerKeys.publicKey.export({ type: 'spki', format: 'pem' }));
@@ -414,40 +607,278 @@ const pidIssuer = new EUDIPIDIssuerVerifier({
 // CRYPTO AUX FUNCTIONS FOR JWE DECRYPTION (ECDH-ES + A128GCM/A256GCM)
 // =============================================================================
 
-function deriveConcatKDF(sharedSecret, keyLengthBytes, encAlg, apuB64, apvB64) {
-  const algorithmId = Buffer.from(encAlg, 'ascii');
-  const algIdLength = Buffer.alloc(4);
-  algIdLength.writeUInt32BE(algorithmId.length, 0);
+function deriveConcatKDF(sharedSecret, keyLengBytes, encAlg, apuB64 = "", apvB64 = "") {
+  const algBuf = Buffer.from(encAlg, 'ascii');
+  const algLen = Buffer.alloc(4);
+  algLen.writeUInt32BE(algBuf.length, 0);
 
-  let apuBuf = Buffer.alloc(0);
-  if (apuB64) apuBuf = Buffer.from(apuB64, 'base64url');
-  const apuLength = Buffer.alloc(4);
-  apuLength.writeUInt32BE(apuBuf.length, 0);
+  const apuBuf = apuB64 ? Buffer.from(apuB64, "base64url") : Buffer.alloc(0);
+  const apuLen = Buffer.alloc(4);
+  apuLen.writeUInt32BE(apuBuf.length, 0);
 
-  let apvBuf = Buffer.alloc(0);
-  if (apvB64) apvBuf = Buffer.from(apvB64, 'base64url');
-  const apvLength = Buffer.alloc(4);
-  apvLength.writeUInt32BE(apvBuf.length, 0);
+  const apvBuf = apvB64 ? Buffer.from(apvB64, "base64url") : Buffer.alloc(0);
+  const apvLen = Buffer.alloc(4);
+  apvLen.writeUInt32BE(apvBuf.length, 0);
 
-  const suppPubInfo = Buffer.alloc(4);
-  suppPubInfo.writeUInt32BE(keyLengthBytes * 8, 0);
+  const keyDataLen = Buffer.alloc(4);
+  keyDataLen.writeUInt32BE(keyLengBytes * 8, 0);
 
-  const round1Counter = Buffer.from([0x00, 0x00, 0x00, 0x01]);
-
-  const kdfInput = Buffer.concat([
-    round1Counter,
-    sharedSecret,
-    algIdLength,
-    algorithmId,
-    apuLength,
-    apuBuf,
-    apvLength,
-    apvBuf,
-    suppPubInfo
+  const otherInfo = Buffer.concat([
+    algLen, algBuf,
+    apuLen, apuBuf,
+    apvLen, apvBuf,
+    keyDataLen
   ]);
 
-  const hash = crypto.createHash('sha256').update(kdfInput).digest();
-  return hash.subarray(0, keyLengthBytes);
+  const counter = Buffer.alloc(4);
+  counter.writeUInt32BE(1, 0);
+
+  const hashInput = Buffer.concat([counter, sharedSecret, otherInfo]);
+  return crypto.createHash("sha256").update(hashInput).digest().subarray(0, keyLengBytes);
+}
+
+function encryptPayloadToJWE(payloadString, recipientJwk, encAlg = 'A128GCM') {
+  const recipientPubKey = crypto.createPublicKey({ key: recipientJwk, format: 'jwk' });
+  const ephemeralKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: recipientJwk.crv || 'P-256' });
+  const epkJwk = ephemeralKeyPair.publicKey.export({ format: 'jwk' });
+
+  // ECDH key agreement
+  const sharedSecret = crypto.diffieHellman({
+    privateKey: ephemeralKeyPair.privateKey,
+    publicKey: recipientPubKey
+  });
+
+  const keyLen = encAlg === 'A256GCM' ? 32 : 16;
+  const cek = crypto.hkdfSync('sha256', sharedSecret, Buffer.alloc(0), Buffer.from(encAlg, 'utf8'), keyLen);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(encAlg === 'A256GCM' ? 'aes-256-gcm' : 'aes-128-gcm', cek, iv);
+
+  const jweHeader = {
+    alg: 'ECDH-ES',
+    enc: encAlg,
+    epk: { kty: epkJwk.kty, crv: epkJwk.crv, x: epkJwk.x, y: epkJwk.y }
+  };
+
+  const headerB64 = Buffer.from(JSON.stringify(jweHeader)).toString('base64url');
+  cipher.setAAD(Buffer.from(headerB64, 'ascii'));
+  const ciphertext = Buffer.concat([cipher.update(payloadString, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return `${headerB64}..${iv.toString('base64url')}.${ciphertext.toString('base64url')}.${tag.toString('base64url')}`;
+}
+
+function encryptCredentialResponseJWE(responseDataObj, recipientJwkOrObj, options = {}) {
+  console.log("!!!", options);
+  let payloadString;
+  if (typeof responseDataObj === "string") {
+    payloadString = responseDataObj;
+  }
+  else if (Buffer.isBuffer(responseDataObj)) {
+    payloadString = responseDataObj.toString("utf8");
+  }
+  else if (typeof responseDataObj === "object" && responseDataObj !== null) {
+    payloadString = JSON.stringify(responseDataObj);
+  }
+  else {
+    payloadString = String(responseDataObj);
+  }
+
+  let recipientJwk = recipientJwkOrObj;
+  if (recipientJwkOrObj && recipientJwkOrObj.jwk) {
+    recipientJwk = recipientJwkOrObj.jwk;
+  }
+
+  if (!recipientJwk || typeof recipientJwk !== "object") {
+    throw new Error("Invalid or missing recipient JWK for JWE encryption");
+  }
+
+  const recipientPubKey = crypto.createPublicKey({ key: recipientJwk, format: 'jwk' });
+  const curveName = (recipientJwk.crv === "P-256" || !recipientJwk.crv) ? "prime256v1" : recipientJwk.crv;
+  const ephemeralKeyPair = crypto.generateKeyPairSync('ec', { namedCurve: curveName });
+  const epkJwk = ephemeralKeyPair.publicKey.export({ format: 'jwk' });
+
+  // ECDH key agreement
+  const sharedSecret = crypto.diffieHellman({
+    privateKey: ephemeralKeyPair.privateKey,
+    publicKey: recipientPubKey
+  });
+
+  const alg = (typeof options === "object" && options.alg) ? options.alg : "ECDH-ES";
+  const encAlg = (typeof options === "object" && options.enc) ? options.enc : (typeof options === "string" ? options : "A128GCM");
+  const apuB64 = (typeof options === "object" && options.apu) ? options.apu : "";
+  const apvB64 = (typeof options === "object" && options.apv) ? options.apv : "";
+  const keyLen = encAlg === "A256GCM" ? 2 : 16;
+  const kdfAlgId = alg === "ECDH-ES" ? encAlg : alg;
+  const cek = deriveConcatKDF(sharedSecret, keyLen, kdfAlgId, apuB64, apvB64);
+
+  const iv = crypto.randomBytes(12);
+  const ciphername = encAlg === "A256GCM" ? "aes-256-gcm" : "aes-128-gcm";
+  const cipher = crypto.createCipheriv(ciphername, cek, iv);
+
+  const jweHeader = {
+    alg: alg,
+    enc: encAlg,
+    epk: { kty: epkJwk.kty, crv: epkJwk.crv, x: epkJwk.x, y: epkJwk.y }
+  };
+
+  if (apuB64) {
+    jweHeader.apu = apuB64;
+  }
+
+  if (apvB64) {
+    jweHeader.apv = apvB64;
+  }
+
+  const headerB64 = Buffer.from(JSON.stringify(jweHeader)).toString("base64url");
+  cipher.setAAD(Buffer.from(headerB64, "ascii"));
+
+  const ciphertext = Buffer.concat([cipher.update(payloadString, "utf-8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return `${headerB64}..${iv.toString('base64url')}.${ciphertext.toString('base64url')}.${tag.toString('base64url')}`;
+}
+
+function getPrivateKeyObject(keyInput) {
+  if (!keyInput) {
+    return null;
+  }
+
+  if (keyInput instanceof crypto.KeyObject || (typeof keyInput === "object" && keyInput.type === "private")) {
+    return keyInput;
+  }
+
+  if (typeof keyInput === "object" & keyInput.privateKey && keyInput.privateKey !== keyInput) {
+    return getPrivateKeyObject(keyInput.privateKey);
+  }
+
+  if (typeof keyInput === "string" || Buffer.isBuffer(keyInput)) {
+    try {
+      return crypto.createPrivateKey(keyInput);
+    } catch (error) {
+      //
+    }
+  }
+
+  if (typeof keyInput === "object" && keyInput.key) {
+    try {
+      return crypto.createPrivateKey(keyInput);
+    } catch (error) {
+      ///
+    }
+  }
+
+  if (typeof keyInput === "string" && keyInput.trim().length > 0 && !keyInput.trim().startsWith("{")) {
+    try {
+      return crypto.createPrivateKey(keyInput);
+    } catch (error) {
+      //
+    }
+  }
+
+  if (Buffer.isBuffer(keyInput)) {
+    try {
+      return crypto.createPrivateKey(keyInput);
+    } catch (error) {
+      //
+    }
+  }
+
+  if (typeof keyInput === "object" && keyInput.privateKey && keyInput.privateKey !== keyInput) {
+    const resolved = getPrivateKeyObject(keyInput.privateKey);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  if (typeof keyInput === "object" && keyInput.kty && keyInput.d) {
+    try {
+      return crypto.createPrivateKey({ key: keyInput, format: "jwk" });
+    } catch (error) {
+      //
+    }
+  }
+
+  return null;
+}
+
+function getIssuerPrivateKey(passedKey) {
+  console.log("🔎 passed key:", passedKey);
+  let key = getPrivateKeyObject(passedKey);
+  if (key) {
+    return key;
+  }
+
+  if (typeof pidIssuer !== "undefined" && pidIssuer.issuerPrivateKeyPem) {
+    key = getPrivateKeyObject(pidIssuer.issuerPrivateKeyPem);
+    if (key) {
+      return key;
+    }
+  }
+
+  if (typeof demoIssuerKeys !== "undefined") {
+    key = getPrivateKeyObject(demoIssuerKeys);
+    if (key) {
+      return key;
+    }
+  }
+
+  return null;
+}
+
+function extractHolderJwk(credentialRequest, defaultKey = null) {
+  if (!credentialRequest) {
+    return defaultKey;
+  }
+
+  function findJwkDeep(obj) {
+    if (!obj) {
+      return null;
+    }
+
+    if (typeof obj === "object") {
+      if (obj.jwk && typeof obj.jwk === "object" && obj.jwk.kty === "EC" && obj.jwk.x && obj.jwk.y) {
+        return obj.jwk;
+      }
+      if (obj.jty === "EC" && obj.x && obj.y) {
+        return obj;
+      }
+
+      for (const key of Object.keys(obj)) {
+        if (key.includes("encryption")) {
+          continue;
+        }
+        const res = findJwkDeep(obj[key]);
+        if (res) {
+          return res;
+        }
+      }
+    }
+    else if (typeof obj === "string" && obj.startsWith("ey") && obj.split(".").length === 3) {
+      const parts = obj.split(".");
+      for (let i = 0; i < 2; i++) {
+        try {
+          const decoded = JSON.parse(Buffer.from(parts[i], "base64url").toString("utf8"));
+          const res = findJwkDeep(decoded);
+          if (res) {
+            return res;
+          }
+        } catch (error) {
+          //
+        }
+      }
+    }
+    return null;
+  }
+
+  let holderKey = null;
+  if (credentialRequest.proof || credentialRequest.proofs) {
+    holderKey = findJwkDeep(credentialRequest.proof || credentialRequest.proofs);
+  }
+  if (!holderKey) {
+    holderKey = findJwkDeep(credentialRequest);
+  }
+
+  return holderKey || defaultKey;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -523,7 +954,9 @@ function base64url(strOrBuffer) {
 }
 
 
-function decryptJweResponse(jweString, privateKeyPem) {
+function decryptJweResponse(jweString, privateKeyInput) {
+  console.log("🔎 Decrypting:", jweString);
+  console.log("🔎 Key:", privateKeyInput);
   const parts = jweString.split('.');
   if (parts.length !== 5) {
     throw new Error('Invalid JWE format; 5 segments were expected');
@@ -547,7 +980,7 @@ function decryptJweResponse(jweString, privateKeyPem) {
     format: 'jwk'
   });
 
-  const rpPrivateKey = crypto.createPrivateKey(privateKeyPem);
+  const rpPrivateKey = getPrivateKeyObject(privateKeyInput);
 
   const sharedSecret = crypto.diffieHellman({
     privateKey: rpPrivateKey,
@@ -872,6 +1305,7 @@ app.post('/api/presentation/callback', async (req, res) => {
       for (const [txId, tx] of transactionStore.entries()) {
         if (tx.status === 'PENDING' && tx.privateKeyPem) {
           try {
+            console.log("(2) attempting to decrypt JWE payload")
             decryptedPayload = decryptJweResponse(tokenToDecrypt, tx.privateKeyPem);
             state = txId;
             console.log(`[RP] JWE decrypted with key belonging to session: ${state}`);
@@ -1010,6 +1444,40 @@ app.get('/api/presentation/status', (req, res) => {
 });
 
 // =============================================================================
+// ISSUANCE SZENARIO ENDPOINTS
+// =============================================================================
+
+app.get('/api/issuance/scenarios', (req, res) => {
+  res.json({
+    success: true,
+    activeScenarioId: activeIssuanceScenarioId,
+    scenarios: allIssuanceScenariosMap
+  });
+});
+
+app.get('/api/issuance/scenario', (req, res) => {
+  res.json({
+    success: true,
+    scenarioId: activeIssuanceScenarioId,
+    scenario: activeIssuanceScenario,
+    scenarios: allIssuanceScenariosMap
+  });
+});
+
+app.post('/api/issuance/scenario/select', (req, res) => {
+  const { scenarioId } = req.body || {};
+  if (switchIssuanceScenario(scenarioId)) {
+    res.json({
+      success: true,
+      scenarioId: activeIssuanceScenarioId,
+      scenario: activeIssuanceScenario
+    });
+  } else {
+    res.status(400).json({ success: false, error: `Unknwon issuance scenario: ${scenarioId}` });
+  }
+});
+
+// =============================================================================
 // ENDPOINTS FOR ISSUANCE & ATTESTATION VALIDATION (OPENID4VCI)
 // =============================================================================
 
@@ -1061,14 +1529,18 @@ app.all('/api/issuance/initiate', (req, res) => {
     format: format
   });
 
+  // dynamic link to configuration ID based on active scenario
+  const configId = activeIssuanceScenario?.credentialType === 'mso_mdoc' ? 'mDL_ISO_18013_5' : (activeIssuanceScenario?.credentialType === 'pid_sd_jwt' ? 'DE_PID_SD_JWT_VC' : 'Employee_ID_SD_JWT_VC');
+
   const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
   const offerObj = {
     credential_issuer: issuerUrl,
-    credential_configuration_ids: ['Employee_ID_SD_JWT_VC'],
+    credential_configuration_ids: [configId],
     grants: {
-      authorization_code: {
-        issuer_state: sessionId
+      "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
+        "pre-authorized_code": sessionId
       }
+      // authorization_code: { issuer_state: sessionId }
     }
   };
 
@@ -1208,15 +1680,16 @@ app.get([
 
   try {
     const issuerPublicKeyJwk = demoIssuerKeys.publicKey.export({ format: 'jwk' });
-    const certsForHeader = (typeof x5cHeaderArray !== 'undefined' && x5cHeaderArray.length > 0)
-      ? x5cHeaderArray
+    const certsForHeader = (typeof issuerX5cHeaderArray !== 'undefined' && issuerX5cHeaderArray.length > 0)
+      ? issuerX5cHeaderArray
       : [rpSigningCertBase64];
 
-    const signingKey = accessCertPrivateKeyPem || demoIssuerKeys.privateKey;
+    const signingKey = issuerAccessCertPrivateKeyPem || accessCertPrivateKeyPem || demoIssuerKeys.privateKey;
 
     const jwtHeader = {
       alg: 'ES256',
-      typ: 'openid-credential-issuer-signed-metadata+jwt'
+      typ: 'openidvci-issuer-metadata+jwt'
+      // typ: 'openid-credential-issuer-signed-metadata+jwt'
     };
 
     if (accessCertPrivateKeyPem && certsForHeader && certsForHeader.length > 0) {
@@ -1230,7 +1703,8 @@ app.get([
       iss: issuerUrl,
       sub: issuerUrl,
       iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 86400
+      exp: Math.floor(Date.now() / 1000) + 86400,
+      issuer_info: (typeof issuerInfoArray !== 'undefined' && issuerInfoArray.length > 0) ? issuerInfoArray : []
     };
 
     const tokenInput1 = `${Buffer.from(JSON.stringify(jwtHeader)).toString('base64url')}.${Buffer.from(JSON.stringify(basePayload)).toString('base64url')}`;
@@ -1288,9 +1762,14 @@ app.get([
     token_endpoint: `${issuerUrl}/token`,
     nonce_endpoint: `${issuerUrl}/nonce`,
     credential_endpoint: `${issuerUrl}/credential`,
+    deferredCredentialEndpoint: `${issuerUrl}/deferred_credential`,
     grant_types_supported: ["authorization_code", "urn:ietf:params:oauth:grant-type:pre-authorized_code"],
     response_types_supported: ["code"],
-    token_endpoint_auth_methods_supported: ["none", "client_secret_post", "attest_jwt_client_auth"],
+    token_endpoint_auth_methods_supported: ["none", "client_secret_post", "attest_jwt_client_auth", "client_attestation", "urn:ietf:params:oauth:client-assertion-type:jwt-client-attestation"],
+    token_endpoint_auth_signing_alg_values_supported: ["ES256", "RS256"],
+    client_attestation_signing_alg_values_supported: ["ES256"],
+    client_attestation_pop_signing_alg_values_supported: ["ES256"],
+    client_attestation_types_supported: ["urn:ietf:params:oauth:client-assertion-type:jwt-client-attestation"],
     dpop_signing_alg_values_supported: ["ES256", "RS256"],
     credential_response_encryption: {
       alg_values_supported: ["ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A256KW"],
@@ -1315,6 +1794,14 @@ app.get([
   });
 });
 
+app.get("/api/issuance/authorize", (req, res) => {
+  console.log('[Issuer Server] Authorize-Endpunkt aufgerufen (Authorization Code Flow Fallback).');
+  const { response_type, client_id, redirect_uri, state, issuer_state } = req.query;
+  const sid = issuer_state || state || 'session\_demo';
+  const redirectUrl = redirect_uri ? `${redirect_uri}?code=${encodeURIComponent(sid)}&amp;state=${encodeURIComponent(state || '')}` : `${ISSUER_CONFIG.publicUrl}/login-success.html?sid=${encodeURIComponent(sid)}`;
+  res.redirect(redirectUrl);
+});
+
 app.post('/api/issuance/nonce', (req, res) => {
   console.log('[ISS] received nonce request');
   const nonces = pidIssuer.generateNonceResponse();
@@ -1326,8 +1813,29 @@ app.post('/api/issuance/nonce', (req, res) => {
 app.post('/api/issuance/token', (req, res) => {
   console.log('[ISS] received token request');
 
-  const { code, code_verifier, client_assertion, client_assertion_pop, wia_challenge_sid } = req.body;
-  const dpopProof = req.headers['dpop'];
+  const reqBody = (typeof req.body === "object" && req.body !== null) ? req.body : {};
+
+  // read WIA + WIA PoP from HTTP headers (transmitted by wallet)
+  const wia_token = req.headers['oauth-client-attestation'] || req.headers['client-attestation'] || req.body.client_assertion;
+  const wiaPop = req.headers['oauth-client-attestation-pop'] || req.headers['client-attestation-pop'] || req.body.client_assertion_pop;
+  const dpopHeader = req.headers['dpop'];
+  // const { code, code_verifier, pre_authorized_code } = req.body;
+  const pre_authorized_code = reqBody['pre-authorized_code'] || reqBody['pre_authorized_code'] || reqBody['pre-authorized-code'];
+  const code = reqBody.code || reqBody['authorization_code'];
+  const code_verifier = reqBody.code_verifier || reqBody['code_verifier'];
+  const wia_challenge_sid = reqBody.wia_challenge_sid || reqBody['wia_challenge_sid'] || reqBody.issuer_state || reqBody.state;
+  const effective_code = pre_authorized_code || code || wia_challenge_sid;
+
+  // dynamic HTU URL
+  const protocol = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers['host'];
+  const expectedHtu = `${protocol}://${host}/api/issuance/token`;
+
+  // get transaction context
+  let storedTx = null;
+  if (effective_code && transactionStore.has(effective_code)) {
+    storedTx = transactionStore.get(effective_code);
+  }
 
   let expectedWiaChallenge = null;
   let storedClaims = null;
@@ -1335,137 +1843,258 @@ app.post('/api/issuance/token', (req, res) => {
   let storedSid = null;
   let storedFormat = 'dc+sd-jwt';
 
-  if (wia_challenge_sid && transactionStore.has(wia_challenge_sid)) {
-    const tx = transactionStore.get(wia_challenge_sid);
+  const sidToLookup = effective_code || wia_challenge_sid;
+  if (sidToLookup && transactionStore.has(sidToLookup)) {
+    const tx = transactionStore.get(sidToLookup);
     expectedWiaChallenge = tx.wiaChallenge;
-    storedClaims = tx.claims;
-    storedValidityDays = tx.validityDays;
-    storedSid = wia_challenge_sid;
+    storedClaims = (tx.claims && Object.keys(tx.claims).length > 0)
+      ? tx.claims
+      : (activeIssuanceScenario?.defaultClaims || activeIssuanceScenario?.claims || null);
+    storedValidityDays = tx.validityDays || 90;
+    storedSid = sidToLookup;
     storedFormat = tx.format || 'dc+sd-jwt';
+    console.log(Object.keys(storedClaims || {}).join(', '));
+  } else {
+    console.warn();
+    for (const [txId, tx] of Array.from(transactionStore.entries()).reverse()) {
+      if (tx && (tx.type === 'ISSUANCE' || tx.wiaChallenge)) {
+        expectedWiaChallenge = tx.wiaChallenge;
+        storedClaims = (tx.claims && Object.keys(tx.claims).length > 0)
+          ? tx.claims
+          : (activeIssuanceScenario?.defaultClaims || activeIssuanceScenario?.claims || null);
+        storedValidityDays = tx.validityDays || 90;
+        storedSid = txId;
+        storedFormat = tx.format || 'dc+sd-jwt';
+        console.log(Object.keys(storedClaims || {}).join(', '));
+        break;
+      }
+    }
   }
 
+  if (!storedClaims || Object.keys(storedClaims).length === 0) {
+    storedClaims = activeIssuanceScenario?.defaultClaims || activeIssuanceScenario?.claims || null;
+  }
+
+  // verify token
   const tokenResult = pidIssuer.verifyTokenRequest({
-    code: code,
+    code: effective_code,
     codeVerifier: code_verifier,
-    dpopProof: dpopProof,
-    wiaToken: client_assertion,
-    wiaPop: client_assertion_pop,
-    expectedWiaChallenge: expectedWiaChallenge
+    dpopProof: dpopHeader,
+    expectedHtu: expectedHtu,
+    dsaEncoding: 'ieee-p1363',
+    wiaToken: wia_token || null,
+    wiaPop: wiaPop || null,
+    expectedWiaChallenge: expectedWiaChallenge || null,
+    allowMissingWia: true,
+    ignoreWiaTrustErrors: true
   });
 
-  if (tokenResult.success) {
-    console.log('[ISS] ✅ token rRequest verified successfully; generating access token...');
-
+  if (tokenResult.success || (tokenResult.dpopKey && !tokenResult.errors.some(e => e.includes('DPoP')))) {
+    console.log("[ISS] ✅ token request verified successfully; generating access token & nonce...");
     const accessToken = 'access_token_' + crypto.randomBytes(16).toString('hex');
     const nonceResponse = pidIssuer.generateNonceResponse();
 
     accessTokenStore.set(accessToken, {
       dpopKey: tokenResult.dpopKey,
       scope: 'Employee_ID_SD_JWT_VC',
-      claims: storedClaims,
-      validityDays: storedValidityDays,
-      sid: storedSid,
-      format: storedFormat
+      claims: storedTx?.claims || {},
+      validityDays: storedTx?.validityDays || 90,
+      sid: effective_code,
+      format: storedTx?.format || 'dc+sd-jwt'
     });
 
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-    res.json({
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({
       access_token: accessToken,
       token_type: 'DPoP',
       expires_in: 3600,
       c_nonce: nonceResponse.c_nonce,
       c_nonce_expires_in: nonceResponse.c_nonce_expires_in
     });
-  } else {
-    console.error('[ISS] ❌ token verification has failed:', tokenResult.errors);
-    res.status(400).json({
-      error: 'invalid_request',
-      error_description: tokenResult.errors.join(', ')
-    });
   }
+
+  // error handling
+  console.error("[ISS] ❌ token verification has failed:", tokenResult.errors);
+  res.status(400).json({
+    error: 'invalid_request',
+    error_description: tokenResult.errors.join(", ")
+  });
 });
+
+// helper function to decode request body
+function parseCredentialRequestPayload(reqBody, passedPrivateKey) {
+  // console.log("🔎 private key:", passedPrivateKey);
+  console.log("Parsing:", reqBody);
+  if (!reqBody) {
+    console.log("=> return empty object");
+    return {};
+  }
+  if (typeof reqBody === "object" && !Buffer.isBuffer(reqBody)) {
+    console.log("=> returning request body");
+    return reqBody;
+  }
+
+  const str = Buffer.isBuffer(reqBody) ? reqBody.toString("utf8") : String(reqBody).trim();
+  if (str.startsWith("{")) {
+    try {
+      console.log("=> parsing as JSON");
+      return JSON.parse(str);
+    } catch (error) {
+      //
+    }
+  }
+
+  if (str.startsWith("ey")) {
+    const parts = str.split(".");
+    if (parts.length === 3) {
+      try {
+        console.log("=> attempting to parse as JSON");
+        const payloadJSON = Buffer.from(parts[1], "base64url").toString("utf8");
+        return JSON.parse(payloadJSON);
+      } catch (error) {
+        ///
+      }
+    }
+    if (parts.length === 5) {
+      const keyToUse = getIssuerPrivateKey(passedPrivateKey);
+      if (keyToUse) {
+        try {
+          console.log("=> attempting to decrypt JWE");
+          const decryptedPayload = decryptJweResponse(str, keyToUse);
+          console.log("[ISS] ✅ JWE credential request decrypted successfully");
+          return decryptedPayload;
+        } catch (error) {
+          console.error("[ISS] error while decrypting JWE credential request");
+        }
+      }
+      else {
+        console.error("[ISS] no decryption key");
+      }
+    }
+  }
+
+  return {};
+}
 
 app.post('/api/issuance/credential', (req, res) => {
   console.log('[ISS] received credential request');
 
-  const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('DPoP ')) {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader || !authHeader.toLocaleLowerCase().startsWith("dpop ")) {
     return res.status(401).json({
-      error: 'invalid_token',
-      error_description: 'DPoP access token is required in authorization header'
+      error: "invalid_token",
+      error_description: "DPoP access token is mandatory"
     });
   }
-  const accessToken = authHeader.substring(5);
+
+  const accessToken = authHeader.substring(5).trim();
   const tokenData = accessTokenStore.get(accessToken);
+  console.log("🔎 token data:", tokenData);
 
   if (!tokenData) {
     return res.status(401).json({
-      error: 'invalid_token',
-      error_description: 'Invalid, unknown or expired access token'
+      error: "invalid_token",
+      error_description: "Invalid or expired access token"
     });
   }
 
-  const dpopProof = req.headers['dpop'];
-  const credentialRequest = req.body;
+  const dpopProof = req.headers["dpop"];
+  const credentialRequest = parseCredentialRequestPayload(req.body, demoIssuerKeys.privateKey);
+  console.log("🔎 credential request:", credentialRequest);
+  const protocol = req.headers["x-forwarded-proto"] || req.protocol() || "https";
+  const host = req.headers["host"] || req.get("host");
+  const expectedHtu = `${protocol}://${host}/api/issuance/credential`;
 
   const credResult = pidIssuer.verifyCredentialRequest({
+    authHeader: authHeader,
+    headers: req.headers,
     credentialRequest: credentialRequest,
     dpopProof: dpopProof,
+    expectedHtu: expectedHtu,
+    expectedCNonce: tokenData.cNone,
     accessTokenPayload: {
-      cnf: { jwk: tokenData.dpopKey }
+      cnf: {
+        jwk: tokenData.dpopKey
+      }
     }
   });
 
-  if (credResult.success) {
-    const format = tokenData.format || 'dc+sd-jwt';
+  console.log("🔎 credential result:", credResult);
 
-    console.log('[ISS] ✅ attestation possession verification successfully; generating EAA (Employee ID Card SD-JWT VC)...');
+  if (credResult.success) {
+    const format = tokenData.format || "dc+sd-jwt";
+    const holderJwk = extractHolderJwk(credentialRequest, credResult.devicePublicKeyJwk || tokenData.dpopKey);
+    console.log("[ISS] attestation PoP verified; generating credential...");
 
     const defaultClaims = {
-      given_name: 'Max',
-      family_name: 'Mustermann',
-      employee_id: 'EMP-2026-8942',
-      department: 'IT-Infrastruktur & Sicherheit',
-      role: 'Senior Security Architect',
-      vct: 'urn:company:employee_id:1'
+      given_name: "Erika",
+      family_name: "Mustermann",
+      employee_id: "EMP-2026-8942",
+      department: "IT-Infrastruktur & Sicherheit",
+      role: "Senior Security Architect",
+      vct: "urn:company:employee_id:1"
     };
 
-    const finalClaims = tokenData.claims || defaultClaims;
+    const hasClaims = tokenData.claims && typeof tokenData.claims === "object" && Object.keys(tokenData.claims).length > 0;
+    const finalClaims = hasClaims ? { ...tokenData.claims } : { ...defaultClaims };
     if (!finalClaims.vct) {
-      finalClaims.vct = 'urn:company:employee_id:1';
+      finalClaims.vct = "urn:company:employee_id:1";
     }
-    const validityDays = tokenData.validityDays || 365;
 
-    const signedEaa = pidIssuer.issuePID({
+    console.log("🔎 claims:", finalClaims);
+
+    const issuedCredential = pidIssuer.issuePID({
       claims: finalClaims,
-      holderJwk: credResult.devicePublicKeyJwk,
-      validityDays: validityDays
+      holderJwk: holderJwk,
+      validityDays: tokenData.validityDays || 90,
+      format: format
     });
 
-    if (tokenData.sid && transactionStore.has(tokenData.sid)) {
-      const tx = transactionStore.get(tokenData.sid);
-      tx.status = 'SUCCESS';
-      transactionStore.set(tokenData.sid, tx);
-      console.log(`[ISS] ✅ session ${tokenData.sid} status = SUCCESS`);
+    const nonceResponse = pidIssuer.generateNonceResponse();
+    const responseData = {
+      credential: issuedCredential,
+      credentials: [{ credential: issuedCredential }],
+      c_nonce: nonceResponse.c_nonce,
+      c_nonce_expires_in: 86400
+    };
+
+    // determine encryption JWK
+    const respEnc = credentialRequest?.credential_response_encryption || credentialRequest?.response_encryption || credentialRequest?.credentialResponseEncryption;
+    const targetJwk = respEnc?.jwk || credResult?.devicePublicKeyJwk || tokenData?.dpopKey;
+    console.log("!", credentialRequest);
+    console.log("!!", respEnc);
+    console.log("!!", targetJwk);
+
+    if (targetJwk) {
+      console.log("[ISS] providing encrypted credential response via JWE a application/jwt...");
+      try {
+        const jweCompact = encryptCredentialResponseJWE(responseData, targetJwk, {
+          alg: respEnc?.alg,
+          enc: respEnc?.enc,
+          apu: respEnc?.apu,
+          apv: respEnc?.apv
+        });
+
+        res.setHeader("Content-Type", "application/jwt");
+        res.setHeader("Cache-Control", "no-store");
+        return res.send(jweCompact);
+      } catch (error) {
+        console.error("[ISS] error during JWE encryption:", error.message);
+      }
     }
 
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Cache-Control', 'no-store');
-    res.json({
-      credentials: [
-        {
-          credential: signedEaa
-        }
-      ]
-    });
-  } else {
-    console.error('[ISS] ❌ attestation possession verification has failed:', credResult.errors);
-    res.status(400).json({
-      error: 'invalid_proof',
-      error_description: credResult.errors.join(', ')
-    });
+    // unencrypted fallback
+    console.log("[ISS] provining unencrypted response (fallback)...");
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "no-store");
+    return res.json(responseData);
   }
+
+  res.status(400).json({
+    error: "invalid_proof",
+    error_description: credResult.errors.join(", ")
+  });
 });
 
 // launching the API REST server
