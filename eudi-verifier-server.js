@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 const { EUDIVerifier } = require('./eudi-verifier-helper');
-const { EUDIPIDIssuerVerifier } = require('./eudi-issuer-verifier2');
+const { EUDIPIDIssuerVerifier } = require('./eudi-issuer-verifier');
 const { Logger, log_middleware } = require("./util/logger.js");
 
 // set up app instance
