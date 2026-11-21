@@ -2,6 +2,131 @@ let pollInterval = null;
 let activeSessionId = null;
 
 let availableScenarios = {};
+let availableIssuanceScenarios = {};
+
+function loadIssuanceScenarios() {
+  fetch('/api/issuance/scenarios')
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.scenarios) {
+        availableIssuanceScenarios = data.scenarios;
+        const select = document.getElementById('iss-scenario-select');
+        if (!select) return;
+        select.innerHTML = '';
+
+        Object.keys(availableIssuanceScenarios).forEach(id => {
+          const sc = availableIssuanceScenarios[id];
+          const option = document.createElement('option');
+          option.value = id;
+          option.innerText = `${sc.name || id} (${id})`;
+          if (id === data.activeScenarioId) {
+            option.selected = true;
+          }
+          select.appendChild(option);
+        });
+
+        updateIssuanceScenarioDescription();
+        applyActiveIssuanceScenarioFields();
+      }
+    })
+    .catch(err => {
+      console.warn("Ausstellungs-Szenarien konnten nicht geladen werden:", err);
+    });
+}
+
+function updateIssuanceScenarioDescription() {
+  const select = document.getElementById('iss-scenario-select');
+  if (!select) return;
+  const selectedId = select.value;
+  const sc = availableIssuanceScenarios[selectedId];
+  const descElem = document.getElementById('iss-scenario-desc');
+  if (descElem) {
+    if (sc && sc.description) {
+      descElem.innerText = sc.description;
+    } else {
+      descElem.innerText = '';
+    }
+  }
+}
+
+function applyActiveIssuanceScenarioFields() {
+  const select = document.getElementById('iss-scenario-select');
+  if (!select) return;
+  const selectedId = select.value;
+  const sc = availableIssuanceScenarios[selectedId];
+  if (!sc) return;
+
+  if (sc.credentialType) {
+    const typeSelect = document.getElementById('iss-credential-type');
+    if (typeSelect) {
+      typeSelect.value = sc.credentialType;
+      toggleIssuanceFields();
+    }
+  }
+
+  if (sc.defaultClaims) {
+    const claims = sc.defaultClaims;
+    if (claims.given_name && document.getElementById('iss-given-name')) {
+      document.getElementById('iss-given-name').value = claims.given_name;
+    }
+    if (claims.family_name && document.getElementById('iss-family-name')) {
+      document.getElementById('iss-family-name').value = claims.family_name;
+    }
+    if (claims.birthdate && document.getElementById('iss-birthdate')) {
+      document.getElementById('iss-birthdate').value = claims.birthdate;
+    }
+    if (claims.birth_date && document.getElementById('iss-birthdate')) {
+      document.getElementById('iss-birthdate').value = claims.birth_date;
+    }
+    if (claims.employee_id && document.getElementById('iss-employee-id')) {
+      document.getElementById('iss-employee-id').value = claims.employee_id;
+    }
+    if (claims.department && document.getElementById('iss-department')) {
+      document.getElementById('iss-department').value = claims.department;
+    }
+    if (claims.role && document.getElementById('iss-role')) {
+      document.getElementById('iss-role').value = claims.role;
+    }
+    if (claims.driving_privileges && document.getElementById('iss-privileges')) {
+      document.getElementById('iss-privileges').value = claims.driving_privileges;
+    }
+    if (claims.street && document.getElementById('iss-street')) {
+      document.getElementById('iss-street').value = claims.street;
+    }
+    if (claims.locality && document.getElementById('iss-locality')) {
+      document.getElementById('iss-locality').value = claims.locality;
+    }
+    if (claims.zip && document.getElementById('iss-zip')) {
+      document.getElementById('iss-zip').value = claims.zip;
+    }
+    if (claims.country && document.getElementById('iss-country')) {
+      document.getElementById('iss-country').value = claims.country;
+    }
+  }
+}
+
+function onIssuanceScenarioChange() {
+  const select = document.getElementById('iss-scenario-select');
+  if (!select) return;
+  const scenarioId = select.value;
+  updateIssuanceScenarioDescription();
+  applyActiveIssuanceScenarioFields();
+
+  fetch('/api/issuance/scenario/select', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ scenarioId })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        console.log(`[Frontend] Ausstellungs-Szenario gewechselt zu: ${scenarioId}`);
+      }
+    })
+    .catch(err => console.error("Fehler beim Ausstellungs-Szenariowechsel:", err));
+}
 
 function loadScenarios() {
   fetch('/api/scenarios')
@@ -28,7 +153,7 @@ function loadScenarios() {
       }
     })
     .catch(err => {
-      console.warn("Scenarios could not be loaded from host:", err);
+      console.warn("Szenarien konnten nicht geladen werden:", err);
       fetch('/api/scenario')
         .then(r => r.json())
         .then(d => {
@@ -75,10 +200,10 @@ function onScenarioChange() {
     .then(res => res.json())
     .then(data => {
       if (data.success) {
-        console.log(`[FE] scenario was switched: ${scenarioId}`);
+        console.log(`[Frontend] Szenario gewechselt zu: ${scenarioId}`);
       }
     })
-    .catch(err => console.error("Error while switching scenario:", err));
+    .catch(err => console.error("Fehler beim Szenariowechsel:", err));
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -105,12 +230,16 @@ function switchTab(tabId) {
   }
   activeSessionId = null;
   resetUI();
+
+  if (tabId === 'issuance') {
+    loadIssuanceScenarios();
+  }
 }
 
 function startIssuance() {
   document.getElementById('btn-initiate-issuance').disabled = true;
   document.getElementById('status-container').classList.remove('hidden');
-  document.getElementById('status-text').innerText = "Generating employee ID credential offer (OpenID4VCI)...";
+  document.getElementById('status-text').innerText = "Erstelle Mitarbeiter-Ausweis Angebot (OpenID4VCI)...";
   document.getElementById('qr-container').classList.add('hidden');
 
   const type = document.getElementById('iss-credential-type').value;
@@ -162,16 +291,16 @@ function startIssuance() {
       if (data.success) {
         activeSessionId = data.sessionId;
 
-        // display QR code
+        // QR-Code anzeigen
         document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(data.credentialOfferUrl);
         document.getElementById('qr-text').innerText = data.credentialOfferUrl;
 
-        // display session ID
-        document.getElementById('session-title-label').innerText = "Employee ID Session ID";
+        // Session ID anzeigen
+        document.getElementById('session-title-label').innerText = "Mitarbeiter-Ausweis Session ID";
         document.getElementById('session-id-display').innerText = data.sessionId;
 
         document.getElementById('qr-container').classList.remove('hidden');
-        document.getElementById('status-text').innerText = "Waiting for wallet coupling for issuance...";
+        document.getElementById('status-text').innerText = "Warte auf Wallet-Kopplung (Ausstellung)...";
 
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(() => {
@@ -181,24 +310,24 @@ function startIssuance() {
               if (statusData.status === 'SUCCESS') {
                 clearInterval(pollInterval);
                 document.getElementById('status-container').classList.add('hidden');
-                alert("Employee ID (EAA) has been successfully issues to wallet!");
+                alert("Mitarbeiter-Ausweis (EAA) erfolgreich an Wallet ausgestellt!");
                 resetUI();
               } else if (statusData.status === 'FAILED') {
                 clearInterval(pollInterval);
-                alert("Issuance has failed: " + statusData.errors.join(", "));
+                alert("Ausstellung fehlgeschlagen: " + statusData.errors.join(", "));
                 resetUI();
               }
             })
             .catch(err => console.error("Issuance polling error: ", err));
         }, 2000);
       } else {
-        alert("Session could not be initiated");
+        alert("Sitzung konnte nicht initiiert werden.");
         resetUI();
       }
     })
     .catch(err => {
       console.error(err);
-      alert("Connection to server has failed!");
+      alert("Verbindung zum Server fehlgeschlagen.");
       resetUI();
     });
 }
@@ -237,33 +366,33 @@ function startOnboarding() {
   const selectedScenario = selectElem ? selectElem.value : null;
   const url = selectedScenario ? `/api/presentation/initiate?scenario=${encodeURIComponent(selectedScenario)}` : '/api/presentation/initiate';
 
-  // initiate onboarding sessions
+  // Onboarding Session initiieren
   fetch(url)
     .then(res => res.json())
     .then(data => {
       if (data.success) {
         activeSessionId = data.sessionId;
 
-        // display QR code
+        // QR-Code anzeigen
         document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(data.qrCodeUrl);
         document.getElementById('qr-text').innerText = data.qrCodeUrl;
 
-        // display session ID
+        // Session ID anzeigen
         document.getElementById('session-id-display').innerText = data.sessionId;
 
         document.getElementById('qr-container').classList.remove('hidden');
 
-        // start recurring polling
+        // Polling starten
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(() => pollSession(data.pollEndpoint), 2000);
       } else {
-        alert("Session could not be initiated!");
+        alert("Session konnte nicht initiiert werden.");
         resetUI();
       }
     })
     .catch(err => {
       console.error(err);
-      alert("Connection to server has failed!");
+      alert("Verbindung zum Server fehlgeschlagen.");
       resetUI();
     });
 }
@@ -277,11 +406,11 @@ function pollSession(endpoint) {
         displaySuccess(data);
       } else if (data.status === 'FAILED') {
         clearInterval(pollInterval);
-        alert("Cryptographic validation has failed: " + data.errors.join(", "));
+        alert("Kryptografische 4-Säulen-Validierung fehlgeschlagen: " + data.errors.join(", "));
         resetUI();
       }
     })
-    .catch(err => console.error("Polling error:", err));
+    .catch(err => console.error("Polling Fehler:", err));
 }
 
 function displaySuccess(data) {
@@ -293,7 +422,7 @@ function displaySuccess(data) {
   const claims = data.claims || {};
   const isMdoc = data.format === 'ISO mdoc';
 
-  // adapt document header, icon and container
+  // Dokumenten-Header, Icon und Container anpassen
   const credentialHeader = document.getElementById('credential-header');
   const credentialIcon = document.getElementById('credential-icon-container');
   const credentialType = document.getElementById('credential-type');
@@ -307,12 +436,12 @@ function displaySuccess(data) {
   const p2Desc = document.getElementById('pillar2-desc');
 
   if (isMdoc) {
-    // mDL / mdoc style
+    // mDL / mdoc Style
     credentialHeader.className = "credential-header mdoc-style";
     credentialType.innerText = "EUDI Mobile Driving Licence (mDL)";
     credentialTitle.innerText = "Fahrerlaubnis (Klasse B)";
 
-    // mDL icon (steering wheel / car)
+    // mDL Icon (Lenkrad / Auto)
     credentialIcon.innerHTML = `
                     <svg class="btn-icon" style="color: white; height: 1.5rem; width: 1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -328,21 +457,21 @@ function displaySuccess(data) {
     document.getElementById('mdl-privileges').innerText = claims.driving_privileges || 'B';
     document.getElementById('mdl-country').innerText = claims.issuing_country || 'DE';
 
-    // adapt verification stages
-    p1Desc.innerText = "Digital issuer signature verified via CBOR doc structure (mso_mdoc)";
-    p2Title.innerText = "Stage 2: mdoc session handover & device binding";
-    p2Desc.innerText = "Cryptographic signature validated via SessionTranscript";
+    // Pillars anpassen
+    p1Desc.innerText = "Digitale Signatur des mDL-Herausgebers erfolgreich über die CBOR-Dokumentenstruktur (mso_mdoc) verifiziert. Die Authentizität der Fahrerlaubnis-Daten ist bewiesen.";
+    p2Title.innerText = "Säule 2: mdoc-Session Handover & Gerätebindung";
+    p2Desc.innerText = "Kryptografische Signatur über das SessionTranscript gemäß ISO/IEC 18013-5 erfolgreich geprüft. Die Gerätebindung schützt die Führerscheinpräsentation vor Replay-Angriffen.";
 
-    // populate mdoc integrity log
+    // mdoc Integritäts-Log befüllen
     document.getElementById('sd-jwt-audit').classList.add('hidden');
     document.getElementById('mdoc-audit').classList.remove('hidden');
   } else {
-    // PID / SD-JWT style
+    // PID / SD-JWT Style
     credentialHeader.className = "credential-header pid-style";
     credentialType.innerText = "EUDI Personal Identification Data (PID)";
-    credentialTitle.innerText = "Personen identity";
+    credentialTitle.innerText = "Personen-Identitätsnachweis";
 
-    // PID Icon (ID)
+    // PID Icon (Ausweis)
     credentialIcon.innerHTML = `
                     <svg class="btn-icon" style="color: white; height: 1.5rem; width: 1.25rem;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.333 0 4 .667 4 2V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-1c0-1.333 2.667-2 4-2z" />
@@ -354,8 +483,8 @@ function displaySuccess(data) {
 
     if (claims.employee_id || claims.role || claims.department) {
       credentialHeader.className = "credential-header pid-style";
-      credentialType.innerText = "EUDI Sample Company Employee ID";
-      credentialTitle.innerText = "Employee ID Card";
+      credentialType.innerText = "EUDI Company Employee ID";
+      credentialTitle.innerText = "Mitarbeiter-Ausweis";
       document.getElementById('claim-given_name').innerText = claims.given_name || 'N/A';
       document.getElementById('claim-family_name').innerText = claims.family_name || 'N/A';
       document.getElementById('claim-birthdate').innerText = claims.employee_id ? claims.employee_id : (claims.birthdate || 'N/A');
@@ -365,7 +494,7 @@ function displaySuccess(data) {
       document.getElementById('claim-given_name').innerText = claims.given_name || 'N/A';
       document.getElementById('claim-family_name').innerText = claims.family_name || 'N/A';
       document.getElementById('claim-birthdate').innerText = claims.birthdate || claims.birth_date || 'N/A';
-      document.getElementById('claim-is_over_18').innerText = claims.is_over_18 === true ? 'Yes (over 18y)' : 'No';
+      document.getElementById('claim-is_over_18').innerText = claims.is_over_18 === true ? 'Ja (über 18 Jahre)' : 'Nein';
       document.getElementById('claim-nationalities').innerText = Array.isArray(claims.nationalities) ? claims.nationalities.join(", ") : (claims.nationalities || 'N/A');
     }
 
@@ -380,12 +509,12 @@ function displaySuccess(data) {
       document.getElementById('claim-address').innerText = address || 'N/A';
     }
 
-    // reset stages for PID
-    p1Desc.innerText = "Digital issuer signature verified successfully";
-    p2Title.innerText = "Stage 2: Device / Holder Key Binding";
-    p2Desc.innerText = "Device binding has been verified successfully";
+    // Pillars auf PID zurücksetzen
+    p1Desc.innerText = "Digitale ECDSA-P256-Signatur des PID-Herausgebers (Bundesdruckerei) erfolgreich verifiziert. Die Hashes im übergebenen SD-JWT-Ausweis stimmen mathematisch überein.";
+    p2Title.innerText = "Säule 2: Gerätebindung (Device / Holder Key Binding)";
+    p2Desc.innerText = "Die kryptografische Geräteprüfung wurde erfolgreich validiert. Die Bindung an das hardwarebasierte Secure Element des Nutzers ist bewiesen.";
 
-    // populate SD-JWT integrity log
+    // SD-JWT Integritäts-Log befüllen
     document.getElementById('sd-jwt-audit').classList.remove('hidden');
     document.getElementById('mdoc-audit').classList.add('hidden');
 
@@ -410,7 +539,7 @@ function displaySuccess(data) {
                         <td style="color: var(--text-primary); font-weight: 600;">${val}</td>
                         <td style="color: var(--text-secondary);">${salt}</td>
                         <td style="font-family: monospace; font-size: 0.7rem; color: var(--text-secondary);">${item.hash}</td>
-                        <td style="text-align: right; color: var(--success-color); font-weight: bold;">✔ Passed</td>
+                        <td style="text-align: right; color: var(--success-color); font-weight: bold;">✔ Bestanden</td>
                     `;
       disclosureBody.appendChild(tr);
     });
@@ -427,25 +556,25 @@ function displaySuccess(data) {
         div.className = "hidden-hash-item";
         div.innerHTML = `
                             <span style="font-family: monospace; font-size: 0.7rem;">SHA-256: ${hash}</span>
-                            <span class="hidden-hash-badge">Minimized / hidden</span>
+                            <span class="hidden-hash-badge">Minimiert (Versteckt)</span>
                         `;
         hiddenList.appendChild(div);
       }
     });
 
     if (hiddenCount === 0) {
-      hiddenList.innerHTML = `<p style="font-size: 0.75rem; color: var(--text-secondary); font-style: italic;">No undisclosed attributes</p>`;
+      hiddenList.innerHTML = `<p style="font-size: 0.75rem; color: var(--text-secondary); font-style: italic;">Keine unenthüllten Attribute. Alle übermittelten Hashes wurden offengelegt.</p>`;
     }
   }
 
-  // update transport channel and encryption card
+  // Transportkanal und Verschlüsselungskarte aktualisieren
   const transportCard = document.getElementById('transport-security-card');
   const iconContainer = document.getElementById('transport-icon-container');
   const badge = document.getElementById('transport-badge');
   const desc = document.getElementById('transport-desc');
 
   if (data.isEncrypted) {
-    // JWE-encrypted status
+    // JWE-Verschlüsselter Status
     transportCard.className = "transport-security-card encrypted-style";
     iconContainer.className = "transport-icon-wrapper encrypted";
     iconContainer.innerHTML = `
@@ -454,10 +583,10 @@ function displaySuccess(data) {
                     </svg>
                 `;
     badge.className = "transport-badge encrypted";
-    badge.innerText = "Encrypted (JWE)";
-    desc.innerText = "Identity data is encrypted (JWE)";
+    badge.innerText = "Ende-zu-Ende verschlüsselt (JWE)";
+    desc.innerText = "Die Identitätsdaten wurden auf Anwendungsebene via JSON Web Encryption (JWE) mit dem elliptischen ECDH-Sitzungsschlüssel der Onboarding-Sitzung verschlüsselt. Ein Mitlesen der personenbezogenen Daten auf dem Callback-Kanal (direct_post.jwt) war unmöglich.";
   } else {
-    // unencrypted status (plain fallback / mock)
+    // Unverschlüsselter Status (Plain Fallback / Mock)
     transportCard.className = "transport-security-card plain-style";
     iconContainer.className = "transport-icon-wrapper plain";
     iconContainer.innerHTML = `
@@ -466,8 +595,8 @@ function displaySuccess(data) {
                     </svg>
                 `;
     badge.className = "transport-badge plain";
-    badge.innerText = "Fallback (unencrypted)";
-    desc.innerText = "Data was transmitted als clear text / unencrypted";
+    badge.innerText = "Fallback-Kanal (Unverschlüsselt)";
+    desc.innerText = "Die Identitätsdaten wurden im Klartext über den unverschlüsselten direct_post Endpoint empfangen. Dies ist der Fallback-Kanal für unkomplizierte lokale Demozwecke und Shell-basierte Wallet-Simulationsskripte im Test-Harness.";
   }
 }
 
@@ -508,7 +637,7 @@ function copySessionId() {
   };
 
   const errorHandler = (err) => {
-    console.error('Copy failed: ', err);
+    console.error('Kopieren fehlgeschlagen: ', err);
     const displaySpan = document.getElementById('session-id-display');
     if (displaySpan) {
       const range = document.createRange();
