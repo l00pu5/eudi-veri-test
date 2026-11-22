@@ -295,6 +295,12 @@ function startIssuance() {
         document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(data.credentialOfferUrl);
         document.getElementById('qr-text').innerText = data.credentialOfferUrl;
 
+        const sameDevBtnIss = document.getElementById('same-device-btn');
+        if (sameDevBtnIss) {
+          sameDevBtnIss.href = data.credentialOfferUrl;
+          sameDevBtnIss.style.display = 'inline-flex';
+        }
+
         // display session ID
         document.getElementById('session-title-label').innerText = "Employee ID Session ID";
         document.getElementById('session-id-display').innerText = data.sessionId;
@@ -376,6 +382,12 @@ function startOnboarding() {
         // display QR code
         document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(data.qrCodeUrl);
         document.getElementById('qr-text').innerText = data.qrCodeUrl;
+
+        const sameDevBtnPres = document.getElementById('same-device-btn');
+        if (sameDevBtnPres) {
+          sameDevBtnPres.href = data.qrCodeUrl;
+          sameDevBtnPres.style.display = 'inline-flex';
+        }
 
         // display session ID
         document.getElementById('session-id-display').innerText = data.sessionId;
