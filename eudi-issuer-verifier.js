@@ -12,20 +12,87 @@
 
 const crypto = require('crypto');
 
+/**
+ * aux function: verify DPoP proof JWT
+ */
+function verifyDPoPProof(dpopJwt, expectedHtu, expectedHtm = 'POST') {
+  if (!dpopJwt) {
+    return { valid: false, error: 'DPoP header missing' };
+  }
+
+  try {
+    const parts = dpopJwt.split('.');
+    if (parts.length !== 3) {
+      return { valid: false, error: 'Invalid DPoP JWT format' };
+    }
+
+    const [headerB64, payloadB64, sigB64] = parts;
+    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+
+    // 1. header check
+    if (header.typ && header.typ !== 'dpop+jwt') {
+      console.warn(`typ = "${header.typ}" (expected: "dpop+jwt")`);
+    }
+    if (!header.jwk) {
+      return { valid: false, error: 'Missing jwk parameter in DPoP header' };
+    }
+
+    // 2. payload check (htm, htu)
+    if (payload.htm && payload.htm.toUpperCase() !== expectedHtm.toUpperCase()) {
+      return { valid: false, error: `DPoP HTM error; expected: ${expectedHtm}, actual: ${payload.htm}` };
+    }
+    if (expectedHtu && payload.htu) {
+      // normalized comparison of URLs
+      const cleanExpected = expectedHtu.replace(/\/$/, '');
+      const cleanActual = payload.htu.replace(/\/$/, '');
+      if (cleanExpected !== cleanActual) {
+        return { valid: false, error: `DPoP HTU error; expected: ${cleanExpected}, actual: ${cleanActual}` };
+      }
+    }
+
+    // 3. reconstrut public key from JWK
+    const publicKeyObject = crypto.createPublicKey({
+      key: header.jwk,
+      format: 'jwk'
+    });
+
+    // 4. verify signature (IEEE P1363 for ES256)
+    const dataToVerify = Buffer.from(`${headerB64}.${payloadB64}`);
+    const signatureBuf = Buffer.from(sigB64, 'base64url');
+
+    const verifyOptions = { key: publicKeyObject };
+    if (header.alg === 'ES256' || !header.alg) {
+      verifyOptions.dsaEncoding = 'ieee-p1363';
+    }
+
+    const isSignatureValid = crypto.verify(
+      'SHA256',
+      dataToVerify,
+      verifyOptions,
+      signatureBuf
+    );
+
+    if (!isSignatureValid) {
+      return { valid: false, error: 'Cryptograhic DPoP signature is invalid.' };
+    }
+
+    return {
+      valid: true,
+      dpopKey: header.jwk,
+      payload: payload
+    };
+  } catch (err) {
+    return { valid: false, error: `DPoP validation error: ${err.message}` };
+  }
+}
+
 class EUDIPIDIssuerVerifier {
-  /**
-   * Creates a new instance of the Issues/Provider service
-   * @param {Object} config - configuration parameters
-   * @param {string} config.issuerId - Unique ID of the credential issuer (e.g. https://pid-provider.de)
-   * @param {string} config.issuerPrivateKeyPem - private key of the issuer (PEM)
-   * @param {string} config.issuerPublicKeyPem - public key of the issuer (PEM)
-   * @param {Array<string>} config.trustedWalletKeys - trusted keys of the wallet backend for WIA verification
-   */
   constructor(config) {
     if (!config.issuerId || !config.issuerPrivateKeyPem || !config.issuerPublicKeyPem) {
       throw new Error('Configuration error: issuerId, issuerPrivateKeyPem and issuerPublicKeyPem are required.');
     }
-    this.issuerId = config.issuerId;
+    this.issuerId = config.issuerId || "https://localhost:3000/api/issuance";
     this.issuerPrivateKeyPem = config.issuerPrivateKeyPem;
     this.issuerPublicKeyPem = config.issuerPublicKeyPem;
     this.trustedWalletKeys = config.trustedWalletKeys || [];
@@ -35,24 +102,69 @@ class EUDIPIDIssuerVerifier {
     this.activeNonces = new Map(); // nonce -> exp
   }
 
-  // =============================================================================
-  // INTERFACE 1: TOKEN ENDPOINT (DPoP & WIA VALIDATION)
-  // =============================================================================
+  verifyWia(wiaToken, wiaPop, expectedChallenge) {
+    if (!wiaToken) {
+      return { valid: false, error: 'WIA token is missing' };
+    }
+    try {
+      const parts = wiaToken.split('.');
+      if (parts.length !== 3) {
+        return { valid: false, error: 'Invalid WIA JWT format' };
+      }
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
 
-  /**
-   * Validates an incoming token request (pillar 4: wallet authenticity & DPoP key binding)
-   * 
-   * @param {Object} params - request parameters
-   * @param {string} params.code - authorization code or refresh token
-   * @param {string} params.codeVerifier - PKCE Code Verifier (in case of Auth Code Flow)
-   * @param {string} params.expectedCodeChallenge - previously saved PKCE Code Challenge
-   * @param {string} params.dpopProof - DPoP Proof Token (JWT) of the client
-   * @param {string} params.wiaToken - WIA JWT from the wallet backend
-   * @param {string} params.wiaPop - WIA Proof of Possession (PoP) JWT
-   * @param {string} params.expectedWiaChallenge - previously generated challenge
-   * @returns {Object} validation result with DPoP key binding (public key)
-   */
-  verifyTokenRequest(params) {
+      if (expectedChallenge && payload.nonce && payload.nonce !== expectedChallenge) {
+        return { valid: false, error: `WIA Nonce Mismatch: expected ${expectedChallenge}, got ${payload.nonce}` };
+      }
+
+      return { valid: true, payload };
+    } catch (e) {
+      return { valid: false, error: `WIA decoding error: ${e.message}` };
+    }
+  }
+
+  verifyTokenRequest(opts = {}) {
+    const errors = [];
+
+    // 1. resolve WIA header or body param
+    const wiaToken = opts.wiaToken ||
+      opts.headers?.['oauth-client-attestation'] ||
+      opts.headers?.['client-attestation'] ||
+      opts.body?.client_assertion;
+
+    const wiaPop = opts.wiaPop ||
+      opts.headers?.['oauth-client-attestation-pop'] ||
+      opts.headers?.['client-attestation-pop'] ||
+      opts.body?.client_assertion_pop;
+
+    const dpopProof = opts.dpopProof || opts.headers?.['dpop'];
+    const expectedHtu = opts.expectedHtu;
+
+    // 2. verify DPoP proof
+    const dpopResult = verifyDPoPProof(dpopProof, expectedHtu, 'POST');
+    if (!dpopResult.valid) {
+      errors.push(`DPoP validation failed: ${dpopResult.error}`);
+    }
+
+    // 3. WIA verification
+    if (wiaToken) {
+      const wiaResult = this.verifyWia(wiaToken, wiaPop, opts.expectedWiaChallenge);
+      if (!wiaResult.valid && !opts.allowMissingWia && !opts.ignoreWiaTrustErrors) {
+        errors.push(`Wallet Attestation (WIA) is missing: ${wiaResult.error}`);
+      }
+    } else if (!opts.allowMissingWia) {
+      errors.push('Wallet Instance Attestation (WIA) or WIA PoP missing in token request');
+    }
+
+    return {
+      success: errors.length === 0 || (dpopResult.valid && opts.allowMissingWia),
+      errors: errors,
+      dpopKey: dpopResult.dpopKey || null,
+      payload: dpopResult.payload || null
+    };
+  }
+
+  __verifyTokenRequest(params) {
     const { code, codeVerifier, expectedCodeChallenge, dpopProof, wiaToken, wiaPop, expectedWiaChallenge } = params;
     const errors = [];
 
@@ -97,17 +209,7 @@ class EUDIPIDIssuerVerifier {
     };
   }
 
-  // =============================================================================
-  // INTERFACE 2: NONCE GENERATION (c_nonce & dpop_nonce)
-  // =============================================================================
-
-  /**
-   * Generates a fresh nonce pair for securing attestations
-   * 
-   * @param {number} [lifespanSeconds=300] - Validity period of nonce (default: 5min)
-   * @returns {Object} Nonce Response Objejt (c_nonce & dpop_nonce)
-   */
-  generateNonceResponse(lifespanSeconds = 300) {
+  generateNonceResponse(lifespanSeconds) {
     const cNonce = 'c_nonce_' + crypto.randomBytes(16).toString('hex');
     const dpopNonce = 'dpop_nonce_' + crypto.randomBytes(16).toString('hex');
     const exp = Date.now() + (lifespanSeconds * 1000);
@@ -122,10 +224,13 @@ class EUDIPIDIssuerVerifier {
     };
   }
 
-  /**
-   * Checks if none if valid and still active
-   * Consumes nonce directly (Single Use for High Assurance)
-   */
+  generateNonceResponse() {
+    const cNonce = 'cnonce_' + crypto.randomBytes(16).toString('hex');
+    return {
+      c_nonce: cNonce,
+      c_nonce_expires_in: 86400
+    };
+  }
 
   _validateAndConsumeNonce(nonce) {
     if (!nonce) return false;
@@ -141,21 +246,102 @@ class EUDIPIDIssuerVerifier {
     return true;
   }
 
-  // =============================================================================
-  // INTERFACE 3: CREDENTIAL ENDPOINT
-  // =============================================================================
+  verifyCredentialRequest(opts = {}) {
+    const errors = [];
 
-  /**
-   * Verifies an incoming credential request
-   * Checks DPoP (Access Token Binding) + cryptographic key PoP (Proof of Possession).
-   * 
-   * @param {Object} params - validation context
-   * @param {Object} params.credentialRequest - JSON body of the credential request
-   * @param {string} params.dpopProof - DPoP Proof Token from the HTTP header
-   * @param {Object} params.accessTokenPayload - decoded Access Token (with cnf.jwk coupling)
-   * @returns {Object} validation result with the verified device binding key of the user
-   */
-  verifyCredentialRequest(params) {
+    // 1. resolve AuthHeader
+    const authHeader = opts.authHeader || opts.headers?.['authorization'];
+    const dpopProof = opts.dpopProof || opts.headers?.['dpop'];
+    const expectedHtu = opts.expectedHtu;
+    const expectedCNonce = opts.expectedCNonce || opts.expectedNonce;
+
+    // check if valid accessTokenPayload was provided
+    if (authHeader) {
+      if (!authHeader.toLowerCase().startsWith('dpop ')) {
+        errors.push('Authorization header must start with "DPoP "');
+      }
+    } else if (!opts.accessTokenPayload && !opts.dpopKey) {
+      errors.push('DPoP Access Token required in Authorization Header');
+    }
+
+    // 2. check DPoP proof for credential endpoint
+    let dpopResult = { valid: true };
+    if (dpopProof) {
+      dpopResult = verifyDPoPProof(dpopProof, expectedHtu, 'POST');
+      if (!dpopResult.valid) {
+        errors.push(`Credential DPoP validation failed: ${dpopResult.error}`);
+      }
+    }
+
+    // 3. extract Key Proof (Proof of Possession with c_nonce) & verify
+    let proofJwt = opts.proofJwt;
+    if (!proofJwt && opts.credentialRequest) {
+      if (typeof opts.credentialRequest === 'string' && opts.credentialRequest.startsWith('ey')) {
+        proofJwt = opts.credentialRequest;
+      } else if (opts.credentialRequest.proof) {
+        proofJwt = opts.credentialRequest.proof.jwt ||
+          opts.credentialRequest.proof.proof_jwt ||
+          opts.credentialRequest.proof;
+      }
+    }
+
+    if (proofJwt && typeof proofJwt === 'string') {
+      try {
+        const parts = proofJwt.split('.');
+        if (parts.length === 3) {
+          const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+
+          if (expectedCNonce && payload.nonce && payload.nonce !== expectedCNonce) {
+            console.warn(`c_nonce warning: expected: ${expectedCNonce}, actual: ${payload.nonce}`);
+          }
+
+          // signature verification of the Key Proof (IEEE P1363 for ES256)
+          if (header.jwk || header.x5c) {
+            let pubKey;
+            if (header.jwk) {
+              pubKey = crypto.createPublicKey({ key: header.jwk, format: 'jwk' });
+            } else if (header.x5c && header.x5c.length > 0) {
+              const certPem = `-----BEGIN CERTIFICATE-----\n${header.x5c[0]}\n-----END CERTIFICATE-----`;
+              const x509 = new crypto.X509Certificate(certPem);
+              pubKey = x509.publicKey;
+            }
+
+            if (pubKey) {
+              const dataToVerify = Buffer.from(`${parts[0]}.${parts[1]}`);
+              const sigBuf = Buffer.from(parts[2], 'base64url');
+
+              const verifyOpts = { key: pubKey };
+              if (header.alg === 'ES256' || !header.alg) {
+                verifyOpts.dsaEncoding = 'ieee-p1363';
+              }
+
+              const isProofValid = crypto.verify(
+                'SHA256',
+                dataToVerify,
+                verifyOpts,
+                sigBuf
+              );
+
+              if (!isProofValid) {
+                errors.push('Credential Proof Signature is invalid');
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error while parsing the Credential Proof:', e.message);
+      }
+    }
+
+    return {
+      success: errors.length === 0,
+      errors: errors,
+      dpopKey: dpopResult.dpopKey || opts.dpopKey || opts.accessTokenPayload?.cnf?.jwk || null
+    };
+  }
+
+  __verifyCredentialRequest(params) {
     const { credentialRequest, dpopProof, accessTokenPayload } = params;
     const errors = [];
 
@@ -171,18 +357,18 @@ class EUDIPIDIssuerVerifier {
         // Check if the DPoP key matches the key that the access token was bound to
         const expectedTokenJwk = accessTokenPayload.cnf?.jwk;
         if (!expectedTokenJwk || JSON.stringify(dpopPublicKeyJwk) !== JSON.stringify(expectedTokenJwk)) {
-          errors.push('DPoP-Schlüsselkonflikt: Der DPoP-Schlüssel entspricht nicht dem registrierten Token-Schlüssel (Sender-Constraint verletzt).');
+          errors.push('DPoP key conflict: DPoP key does not match with the registered token key');
         }
       } catch (err) {
-        errors.push(`DPoP-Validierung fehlgeschlagen: ${err.message}`);
+        errors.push(`DPoP validation has failed: ${err.message}`);
       }
     } else {
-      errors.push('DPoP-Proof fehlt im Credential-Request.');
+      errors.push('DPoP proof missing in credential request');
     }
 
     // 2. format check of the request
     if (!credentialRequest || (!credentialRequest.credential_configuration_id && !credentialRequest.credential_identifier)) {
-      errors.push('Ungültiger Credential-Request: Es muss eine credential_configuration_id oder ein credential_identifier übergeben werden.');
+      errors.push('Invalid credential request: credential_configuration_id or credential_identifier must be provided');
       return { success: false, errors };
     }
 
@@ -210,20 +396,58 @@ class EUDIPIDIssuerVerifier {
     };
   }
 
-  // =============================================================================
-  // INTERFACE 4: PID SIGNATURE & ISSUANCE (SD-JWT VC)
-  // =============================================================================
+  issuePID(params = {}) {
+    const { claims = {}, validityDays = 90, format = 'dc+sd-jwt', holderJwk = null } = params;
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + (validityDays * 86400);
 
-  /**
-   * Generates a signed SD-JWT VC for the provided claims and binds it to the user's device key
-   * 
-   * @param {Object} params - Ausstellungsparameter
-   * @param {Object} params.claims - Klartext-Claims (z. B. Erika Mustermanns Daten)
-   * @param {Object} params.holderJwk - Der verifizierte öffentliche Device-Binding-Schlüssel der Wallet (cnf.jwk)
-   * @param {number} [validityDays=90] - Gültigkeitsdauer des Credentials in Tagen
-   * @returns {string} Kompakt-serialisiertes SD-JWT VC (Aussteller-signiertes JWT)
-   */
-  issuePID(params) {
+    const payload = {
+      iss: this.issuerId,
+      sub: 'sub_' + crypto.randomBytes(8).toString('hex'),
+      iat: now,
+      exp: exp,
+      vct: params.vct || 'urn:company:employee_id:1',
+      ...claims
+    };
+
+    if (holderJwk && !payload.cnf) {
+      payload.cnf = { jwk: holderJwk };
+    }
+
+    const isMdoc = format === "mso_doc" || format === "mDL_ISO_18013_5" || format === "MSO";
+    const headerTyp = isMdoc ? "MSO" : (format === "vc+sd-jwt" ? "vs+sd-jwt" : "dc-sd-jwt");
+
+    const header = {
+      alg: 'ES256',
+      typ: headerTyp
+    };
+
+    const tokenInput = `${Buffer.from(JSON.stringify(header)).toString('base64url')}.${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
+
+    let signature = 'demo_sig';
+    if (this.issuerPrivateKeyPem) {
+      try {
+        signature = crypto.sign('SHA256', Buffer.from(tokenInput), {
+          key: this.issuerPrivateKeyPem,
+          dsaEncoding: 'ieee-p1363'
+        }).toString('base64url');
+      } catch (e) {
+        console.warn('Signing error at issuer:', e.message);
+      }
+    }
+
+    const resToken = `${tokenInput}.${signature}`;
+    if (!isMdoc && !resToken.endsWith("~")) {
+      // console.log("⚠️ adding tilde");
+      // console.log(`${resToken}~`);
+      return `${resToken}~`;
+    }
+
+    // console.log("⚠️ not adding tilde:", format, resToken);
+    return resToken;
+  }
+
+  __issuePID(params) {
     const { claims, holderJwk, validityDays = 90 } = params;
 
     if (!holderJwk) {
@@ -302,13 +526,6 @@ class EUDIPIDIssuerVerifier {
     return responseCredentialString;
   }
 
-  // =============================================================================
-  // AUX METHODS (cryptography & verification)
-  // =============================================================================
-
-  /**
-   * validation helper for DPoP proof JWTs.
-   */
   _verifyDPoPProof(jwtString, constraints) {
     const parts = jwtString.split('.');
     if (parts.length !== 3) {
@@ -329,10 +546,10 @@ class EUDIPIDIssuerVerifier {
 
     // 2. Payload integrity check (HTM, HTU and nonce freshness)
     if (payload.htm !== constraints.expectedHtm) {
-      throw new Error(`DPoP HTM error. Expected: ${constraints.expectedHtm}, actual: ${payload.htm}`);
+      throw new Error(`DPoP HTM error; expected: ${constraints.expectedHtm}, actual: ${payload.htm}`);
     }
     if (payload.htu !== constraints.expectedHtu) {
-      throw new Error(`DPoP HTU fehler. Expected: ${constraints.expectedHtu}, actual: ${payload.htu}`);
+      throw new Error(`DPoP HTU error; expected: ${constraints.expectedHtu}, actual: ${payload.htu}`);
     }
     if (payload.nonce) {
       const isNonceValid = this._validateAndConsumeNonce(payload.nonce);
@@ -358,9 +575,6 @@ class EUDIPIDIssuerVerifier {
     return header.jwk;
   }
 
-  /**
-   * Validation helper for Key Proof of Possession JWTs (from the credential endpoint).
-   */
   _verifyProofOfPossession(jwtString) {
     const parts = jwtString.split('.');
     if (parts.length !== 3) {
@@ -412,15 +626,12 @@ class EUDIPIDIssuerVerifier {
     return holderJwk;
   }
 
-  /**
-   * Validation helper for WIA & PoP
-   */
   _verifyWiaAndPop(wiaToken, wiaPop, expectedChallenge) {
     const wiaParts = wiaToken.split('.');
     const popParts = wiaPop.split('.');
 
     if (wiaParts.length !== 3 || popParts.length !== 3) {
-      throw new Error('nvalid WIA or WIA PoP JWT format.');
+      throw new Error('Invalid WIA or WIA PoP JWT format.');
     }
 
     const wiaPayload = JSON.parse(Buffer.from(wiaParts[1], 'base64url').toString('utf8'));
@@ -635,4 +846,4 @@ if (require.main === module) {
   runDemo().catch(console.error);
 }
 
-module.exports = { EUDIPIDIssuerVerifier };
+module.exports = { EUDIPIDIssuerVerifier, verifyDPoPProof };

@@ -1,0 +1,24 @@
+{
+  "defaultScenario": "eaa_employee_id",
+  "scenarios": {
+    "eaa_employee_id": {
+      "name": "Employee Badge Card (EAA / SD-JWT VC)",
+      "description": "Stellt einen digitalen Mitarbeiter-Ausweis (EAA) im SD-JWT VC Format aus",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_issuance_employee_card.jwt"
+      },
+      "credentialType": "employee_sd_jwt",
+      "vct": "urn:company:employee_id:1",
+      "defaultClaims": {
+        "given_name": "Sebastian",
+        "family_name": "Block",
+        "employee_id": "EMP-1234-5678",
+        "department": "Support Organization",
+        "role": "Master of Disaster",
+        "country": "DE"
+      }
+    }
+  }
+}
