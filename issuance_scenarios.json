@@ -19,6 +19,46 @@
         "role": "Master of Disaster",
         "country": "DE"
       }
+    },
+    "eaa_otp_auth_code": {
+      "name": "Mitarbeiter-Ausweis mit OTP-Login (Authorization Code Flow)",
+      "description": "Legitimierung des Nutzers via Einmalpasswort (OTP) im In-App Browser vor der Nachweisausstellung (OpenID4VCI Authorization Code Flow).",
+      "flow": "authorization_code",
+      "certs": {
+        "accessCertificate": "certs/issuer_access_certificate.pem",
+        "accessPrivateKey": "certs/issuer_access_certificate_key.pem",
+        "registrationCertificate": "certs/issuer_registration_certificate.jwt"
+      },
+      "credentialType": "employee_sd_jwt",
+      "vct": "urn:company:employee_id:1",
+      "defaultClaims": {
+        "given_name": "Erika",
+        "family_name": "Mustermann",
+        "employee_id": "EMP-2026-9941",
+        "department": "IT Infrastructure & Security",
+        "role": "Senior System Architect",
+        "country": "DE"
+      }
+    },
+    "eaa_pid_verified_employee": {
+      "name": "Mitarbeiter-Ausweis via PID-Verifikation (PID → EAA)",
+      "description": "Verlangt zuerst eine PID-Präsentation (Vor- & Nachname), liest die verifizierten Namen aus dem staatlichen Ausweis aus und stellt darauf basierend den Mitarbeiter-Ausweis aus.",
+      "flow": "presentation_required",
+      "certs": {
+        "accessCertificate": "certs/issuer_access_certificate.pem",
+        "accessPrivateKey": "certs/issuer_access_certificate_key.pem",
+        "registrationCertificate": "certs/issuer_registration_certificate.jwt"
+      },
+      "credentialType": "employee_sd_jwt",
+      "vct": "urn:company:employee_id:1",
+      "defaultClaims": {
+        "given_name": "Erika",
+        "family_name": "Mustermann",
+        "employee_id": "EMP-2026-7788",
+        "department": "Identity & Access Management",
+        "role": "Lead Security Architect",
+        "country": "DE"
+      }
     }
   }
 }
