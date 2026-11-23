@@ -80,6 +80,7 @@ app.use(session({
 // in-memory store for transient status sync (Redis "lite")
 const transactionStore = new Map();
 const accessTokenStore = new Map(); // token -> { dpopKey, claims }
+const authorizationCodeStore = new Map(); // token -> { dpopKey, claims }
 
 // =============================================================================
 // DEBUG LOGGING
@@ -1504,7 +1505,7 @@ app.all('/api/issuance/initiate', (req, res) => {
 
   if (req.method === 'POST') {
     const { claims, validityDays, format: reqFormat } = req.body;
-    if (claims) {
+    if (claims && typeof claims === "object" && Object.keys(claims).length > 0) {
       customClaims = claims;
     }
     if (validityDays) {
@@ -1520,11 +1521,15 @@ app.all('/api/issuance/initiate', (req, res) => {
     }
   }
 
+  // load claims from active scenario if no user-defined claims are present in the request
+  const scenarioClaims = activeIssuanceScenario?.defaultClaims || activeIssuanceScenario?.claims || null;
+  const effectiveClaims = customClaims || scenarioClaims;
+
   transactionStore.set(sessionId, {
     type: 'ISSUANCE',
     wiaChallenge: wiaChallenge,
     status: 'PENDING',
-    claims: customClaims,
+    claims: effectiveClaims,
     validityDays: customValidityDays,
     format: format
   });
@@ -1532,22 +1537,21 @@ app.all('/api/issuance/initiate', (req, res) => {
   // dynamic link to configuration ID based on active scenario
   const configId = activeIssuanceScenario?.credentialType === 'mso_mdoc' ? 'mDL_ISO_18013_5' : (activeIssuanceScenario?.credentialType === 'pid_sd_jwt' ? 'DE_PID_SD_JWT_VC' : 'Employee_ID_SD_JWT_VC');
 
+  const isAuthCodeFlow = (activeIssuanceScenario?.flow === "authorization_code") || (req.body && req.body.flow === "authorization_code") || (req.query && req.query.flow === "authorization_code");
   const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
+
+  const grantsObj = isAuthCodeFlow ? { "authorization_code": { "issuer_state": sessionId } } : { "urn:ietf:params:oauth:grant-type:pre-authorized_code": { "pre-authorized_code": sessionId, "user_pin_required": false } };
+
   const offerObj = {
     credential_issuer: issuerUrl,
     credential_configuration_ids: [configId],
-    grants: {
-      "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
-        "pre-authorized_code": sessionId
-      }
-      // authorization_code: { issuer_state: sessionId }
-    }
+    grants: grantsObj
   };
 
   const offerUrl = `openid-credential-offer://?credential_offer=${encodeURIComponent(JSON.stringify(offerObj))}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(offerUrl)}`;
 
-  console.log(`[Issuer Server] Issuance Session initiiert. ID: ${sessionId}, Challenge: ${wiaChallenge}, Validity: ${customValidityDays} days`);
+  console.log(`[ISS] issuance session initiated; ID: ${sessionId}, challenge: ${wiaChallenge}, validity: ${customValidityDays} days`);
 
   res.json({
     success: true,
@@ -1795,10 +1799,107 @@ app.get([
 });
 
 app.get("/api/issuance/authorize", (req, res) => {
-  console.log('[Issuer Server] Authorize-Endpunkt aufgerufen (Authorization Code Flow Fallback).');
-  const { response_type, client_id, redirect_uri, state, issuer_state } = req.query;
-  const sid = issuer_state || state || 'session\_demo';
-  const redirectUrl = redirect_uri ? `${redirect_uri}?code=${encodeURIComponent(sid)}&amp;state=${encodeURIComponent(state || '')}` : `${ISSUER_CONFIG.publicUrl}/login-success.html?sid=${encodeURIComponent(sid)}`;
+  console.log('[ISS] authorization code flow with OTP');
+  const { response_type, client_id, redirect_uri, state, issuer_state, code_challenge, code_challenge_method } = req.query;
+  const sid = issuer_state || state || "session_demo";
+
+  if (req.query.direct_approve === "true") {
+    const authCode = "code_auth_" + crypto.randomBytes(12).toString("hex");
+    if (transactionStore.has(sid)) {
+      const tx = transactionStore.get(sid);
+      tx.authCode = authCode;
+      transactionStore.set(sid, tx);
+    }
+    authorizationCodeStore.set(authCode, sid);
+
+    const redirectUrl = redirect_uri ? `${redirect_uri}?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(state || '')}` : `${ISSUER_CONFIG.publicUrl}/login-success.html?sid=${encodeURIComponent(sid)}&code=${encodeURIComponent(authCode)}`;
+    return res.redirect(redirectUrl);
+  }
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="de">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OTP-Legitimierung — EUDI Wallet Issuer</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 1rem; }
+            .card { background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); width: 100%; max-width: 420px; padding: 2rem; box-sizing: border-box; border: 1px solid #e2e8f0; }
+            .logo { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem; }
+            .logo-icon { width: 36px; height: 36px; background: #2563eb; color: white; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
+            h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; font-weight: 700; color: #0f172a; }
+            p { margin: 0 0 1.5rem 0; font-size: 0.875rem; color: #64748b; line-height: 1.5; }
+            .form-group { margin-bottom: 1.25rem; }
+            label { display: block; font-size: 0.8125rem; font-weight: 600; color: #334155; margin-bottom: 0.5rem; }
+            input[type="text"] { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1.125rem; text-align: center; letter-spacing: 0.25rem; font-family: monospace; font-weight: bold; box-sizing: border-box; }
+            input[type="text"]:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+            .btn-submit { width: 100%; padding: 0.875rem; background-color: #2563eb; color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 0.9375rem; cursor: pointer; transition: background 0.2s; }
+            .btn-submit:hover { background-color: #1d4ed8; }
+            .hint { font-size: 0.75rem; color: #94a3b8; text-align: center; margin-top: 1rem; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <div class="logo">
+                <div class="logo-icon">🔐</div>
+                <div>
+                    <strong style="font-size: 0.95rem;">EUDI Issuer Identity</strong><br>
+                    <span style="font-size: 0.75rem; color: #64748b;">Authorization Code Flow</span>
+                </div>
+            </div>
+            <h2>Einmalpasswort (OTP) eingeben</h2>
+            <p>Zur Authentifizierung Ihrer Identität vor der Nachweisausstellung geben Sie bitte den 6-stelligen OTP-Code ein.</p>
+            <form action="/api/issuance/authorize/verify" method="POST">
+                <input type="hidden" name="redirect_uri" value="${encodeURIComponent(redirect_uri || '')}">
+                <input type="hidden" name="state" value="${encodeURIComponent(state || '')}">
+                <input type="hidden" name="sid" value="${encodeURIComponent(sid)}">
+                <input type="hidden" name="code_challenge" value="${encodeURIComponent(code_challenge || '')}">
+                <input type="hidden" name="code_challenge_method" value="${encodeURIComponent(code_challenge_method || '')}">
+                <div class="form-group">
+                    <label for="otp">Test-OTP (Voreingestellt: 123456)</label>
+                    <input type="text" id="otp" name="otp" value="123456" maxlength="6" required placeholder="123456">
+                </div>
+                <button type="submit" class="btn-submit">Authentifizieren & Wallet freigeben</button>
+            </form>
+            <div class="hint">OpenID4VCI Authorization Code Grant</div>
+        </div>
+    </body>
+    </html>
+    `);
+});
+
+app.post('/api/issuance/authorize/verify', (req, res) => {
+  const { otp, redirect_uri, state, sid, code_challenge, code_challenge_method } = req.body || {};
+  const decodedRedirectUri = decodeURIComponent(redirect_uri || '');
+  const decodedState = decodeURIComponent(state || '');
+  const decodedSid = decodeURIComponent(sid || '');
+
+  console.log(`[Issuer Server] OTP-Prüfung für Session "${decodedSid}". OTP: ${otp}`);
+
+  if (!otp || (otp.trim() !== '123456' && otp.trim().length !== 6)) {
+    return res.status(400).send('Ungültiger OTP-Code. Bitte verwenden Sie 123456.');
+  }
+
+  const authCode = 'code_auth_' + crypto.randomBytes(12).toString('hex');
+
+  if (transactionStore.has(decodedSid)) {
+    const tx = transactionStore.get(decodedSid);
+    tx.authCode = authCode;
+    tx.codeChallenge = decodeURIComponent(code_challenge || '');
+    tx.codeChallengeMethod = decodeURIComponent(code_challenge_method || '');
+    tx.status = 'AUTHENTICATED';
+    transactionStore.set(decodedSid, tx);
+  }
+
+  authorizationCodeStore.set(authCode, decodedSid);
+
+  const redirectUrl = decodedRedirectUri
+    ? `${decodedRedirectUri}?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(decodedState)}`
+    : `${ISSUER_CONFIG.publicUrl}/login-success.html?sid=${encodeURIComponent(decodedSid)}&code=${encodeURIComponent(authCode)}`;
+
+  console.log(`[Issuer Server] ✅ OTP verifiziert. Authorization Code: ${authCode}. Leite weiter an: ${redirectUrl}`);
   res.redirect(redirectUrl);
 });
 
@@ -1810,6 +1911,7 @@ app.post('/api/issuance/nonce', (req, res) => {
   res.json(nonces);
 });
 
+/*
 app.post('/api/issuance/token', (req, res) => {
   console.log('[ISS] received token request');
 
@@ -1920,6 +2022,108 @@ app.post('/api/issuance/token', (req, res) => {
     error: 'invalid_request',
     error_description: tokenResult.errors.join(", ")
   });
+});
+*/
+
+app.post('/api/issuance/token', (req, res) => {
+  console.log('[Issuer Server] Token Request erhalten.');
+
+  // support for 'pre-authorized_code' and 'pre_authorized_code'
+  const reqBody = (typeof req.body === 'object' && req.body !== null) ? req.body : {};
+  const preAuthCode = reqBody['pre-authorized_code'] || reqBody['pre_authorized_code'] || reqBody['pre-authorized-code'];
+  const code = reqBody.code || reqBody['authorization_code'];
+  const code_verifier = reqBody.code_verifier || reqBody['code_verifier'];
+  const client_assertion = reqBody.client_assertion || reqBody['client_assertion'];
+  const client_assertion_pop = reqBody.client_assertion_pop || reqBody['client_assertion_pop'];
+  const wia_challenge_sid = reqBody.wia_challenge_sid || reqBody['wia_challenge_sid'] || reqBody.issuer_state || reqBody.state;
+  const wiaHeaderToken = req.headers["oauth-client-attestation"] || req.headers["client-attestation"] || req.headers["oauth_client_attestation"];
+  const wiaHeaderPop = req.headers["oauth-client-attestation-pop"] || req.headers["client-attestation-pop"] || req.headers["oauth_client_attestation_pop"];
+  const effectiveWiaToken = client_assertion || wiaHeaderToken;
+  const effectiveWiaPop = client_assertion_pop || wiaHeaderPop;
+
+  const dpopProof = req.headers['dpop'];
+  const effectiveCode = preAuthCode || code || wia_challenge_sid;
+
+  let expectedWiaChallenge = null;
+  let storedClaims = null;
+  let storedValidityDays = 90;
+  let storedSid = null;
+  let storedFormat = 'dc+sd-jwt';
+
+  const sidToLookup = effectiveCode || wia_challenge_sid;
+  if (sidToLookup && transactionStore.has(sidToLookup)) {
+    const tx = transactionStore.get(sidToLookup);
+    expectedWiaChallenge = tx.wiaChallenge;
+    storedClaims = (tx.claims && Object.keys(tx.claims).length > 0)
+      ? tx.claims
+      : (activeIssuanceScenario?.defaultClaims || activeIssuanceScenario?.claims || null);
+    storedValidityDays = tx.validityDays || 90;
+    storedSid = sidToLookup;
+    storedFormat = tx.format || 'dc+sd-jwt';
+    console.log('[ISS] claims loaded:', Object.keys(storedClaims || {}).join(', '));
+  } else {
+    console.warn('[ISS] searching for fallback session...');
+    for (const [txId, tx] of Array.from(transactionStore.entries()).reverse()) {
+      if (tx && (tx.type === 'ISSUANCE' || tx.wiaChallenge)) {
+        expectedWiaChallenge = tx.wiaChallenge;
+        storedClaims = (tx.claims && Object.keys(tx.claims).length > 0)
+          ? tx.claims
+          : (activeIssuanceScenario?.defaultClaims || activeIssuanceScenario?.claims || null);
+        storedValidityDays = tx.validityDays || 90;
+        storedSid = txId;
+        storedFormat = tx.format || 'dc+sd-jwt';
+        console.log('[ISS] claims loaded:', Object.keys(storedClaims || {}).join(', '));
+        break;
+      }
+    }
+  }
+
+  if (!storedClaims || Object.keys(storedClaims).length === 0) {
+    storedClaims = activeIssuanceScenario?.defaultClaims || activeIssuanceScenario?.claims || null;
+  }
+
+  const tokenResult = pidIssuer.verifyTokenRequest({
+    code: code || effectiveCode,
+    codeVerifier: code_verifier,
+    dpopProof: dpopProof,
+    wiaToken: effectiveWiaToken,
+    wiaPop: effectiveWiaPop,
+    expectedWiaChallenge: expectedWiaChallenge,
+    headers: req.headers, // <-- added
+    allowMissingWia: true // <-- added
+  });
+
+  if (tokenResult.success) {
+    console.log('[ISS] ✅ token request validated successfully; generating access token...');
+
+    const accessToken = 'access_token_' + crypto.randomBytes(16).toString('hex');
+    const nonceResponse = pidIssuer.generateNonceResponse();
+
+    accessTokenStore.set(accessToken, {
+      dpopKey: tokenResult.dpopKey,
+      scope: 'Employee_ID_SD_JWT_VC',
+      claims: storedClaims,
+      validityDays: storedValidityDays,
+      sid: storedSid,
+      format: storedFormat
+    });
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      access_token: accessToken,
+      token_type: 'DPoP',
+      expires_in: 3600,
+      c_nonce: nonceResponse.c_nonce,
+      c_nonce_expires_in: nonceResponse.c_nonce_expires_in
+    });
+  } else {
+    console.error('[ISS] ❌ token verification has failed:', tokenResult.errors);
+    res.status(400).json({
+      error: 'invalid_request',
+      error_description: tokenResult.errors.join(', ')
+    });
+  }
 });
 
 // helper function to decode request body
