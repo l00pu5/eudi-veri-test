@@ -32,6 +32,44 @@
         ]
       }
     },
+    "pid_sdjwt_no_claims": {
+      "name": "DE PID - empty claims",
+      "description": "Fordert eine leere Claims-Liste aus der deutschen PID an",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_name_age.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_age_credential",
+            "format": "dc+sd-jwt",
+            "meta": { "vct_values": [ "urn:eudi:pid:de:1" ] },
+            "claims": []
+          }
+        ] 
+      }
+    },
+    "pid_mdoc_no_claims": {
+      "name": "DE PID (mdoc) - empty claims",
+      "description": "Fordert eine leere Credential-Liste aus der PID im ISO mdoc-Format an.",
+      "certs": {
+        "accessCertificate": "certs/access_certificate_02.cer",
+        "accessPrivateKey": "certs/access_certificate_key_02.pem",
+        "registrationCertificate": "certs/registration_certificate_mdoc_name.jwt"
+      },
+      "dcqlQuery": {
+        "credentials": [
+          {
+            "id": "pid_mdoc_credential",
+            "format": "mso_mdoc",
+            "meta": { "doctype_value": "eu.europa.ec.eudi.pid.1" },
+            "claims": [ ]
+          }
+        ]
+      }
+    },
     "pid_mdoc_name": {
       "name": "DE PID (mdoc) - name",
       "description": "Fordert Vorname, Nachname aus der PID im ISO mdoc-Format an.",
