@@ -112,6 +112,24 @@ class EUDIPIDIssuerVerifier {
         return { valid: false, error: 'Invalid WIA JWT format' };
       }
       const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+      console.log("!!! WIA payload:", payload);
+
+      // check if wallet_link is present
+      const wallet_link = payload.wallet_link;
+      const wallet_solution_id = payload.wallet_solution_id;
+      if (wallet_link) {
+        console.log("!!! wallet_link is present:", wallet_link);
+      }
+      else {
+        console.log("!!! wallet_link not provided");
+      }
+
+      if (wallet_solution_id) {
+        console.log("!!! wallet_solution_id is present:", wallet_solution_id);
+      }
+      else {
+        console.log("!!! wallet_solution_id not provided");
+      }
 
       if (expectedChallenge && payload.nonce && payload.nonce !== expectedChallenge) {
         return { valid: false, error: `WIA Nonce Mismatch: expected ${expectedChallenge}, got ${payload.nonce}` };
