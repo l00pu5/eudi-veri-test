@@ -1,4 +1,4 @@
-:root {
+        :root {
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
             --text-primary: #0f172a;
@@ -28,33 +28,6 @@
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
-        }
-
-        .btn-same-device {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1rem;
-            padding: 0.75rem 1.25rem;
-            background-color: var(--brand-color);
-            color: #ffffff !important;
-            font-weight: 600;
-            font-size: 0.875rem;
-            border-radius: 0.5rem;
-            text-decoration: none !important;
-            transition: background-color 0.2s, transform 0.1s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            width: 100%;
-            box-sizing: border-box;
-            text-align: center;
-            cursor: pointer;
-        }
-
-        .btn-same-device:hover {
-            background-color: var(--brand-hover);
-            color: #ffffff !important;
-            text-decoration: none !important;
         }
 
         /* Header */
@@ -253,6 +226,34 @@
         }
 
         /* QR Code & Copy Widget */
+        
+        .btn-same-device {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.75rem 1.25rem;
+            background-color: var(--brand-color);
+            color: #ffffff !important;
+            font-weight: 600;
+            font-size: 0.875rem;
+            border-radius: 0.5rem;
+            text-decoration: none !important;
+            transition: background-color 0.2s, transform 0.1s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .btn-same-device:hover {
+            background-color: var(--brand-hover);
+            color: #ffffff !important;
+            text-decoration: none !important;
+        }
+
         .qr-wrapper {
             display: flex;
             flex-direction: column;
