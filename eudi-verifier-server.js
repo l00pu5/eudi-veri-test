@@ -1719,9 +1719,9 @@ app.get([
         credential_metadata: {
           display: [
             {
-              name: "Muster GmbH - Digitaler Mitarbeiter-Ausweis",
+              name: "Muster GmbH - Digital Employee Badge Card",
               locale: "de-DE",
-              description: "Offizieller fälschungssicherer Betriebsausweis & Digital Access Badge der Muster GmbH",
+              description: "Digital Access Badge (Muster GmbH)",
               background_color: "#0f172a",
               text_color: "#ffffff",
               logo: {
