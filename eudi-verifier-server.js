@@ -1110,6 +1110,7 @@ app.all('/api/presentation/initiate', (req, res) => {
 });
 
 app.get('/api/presentation/request-jwt', (req, res) => {
+  console.log("[RP] request object is being fetched by wallet...");
   const sessionId = req.query.sid;
 
   if (!sessionId || !transactionStore.has(sessionId)) {
@@ -1384,6 +1385,43 @@ app.post('/api/presentation/callback', async (req, res) => {
       tx.rawSdList = verificationResult.rawSdList || [];
       transactionStore.set(state, tx);
 
+      // check if presentatuion is linked to EAA issuance session
+      if (tx.linkedIssuanceSessionId && transactionStore.has(tx.linkedIssuanceSessionId)) {
+        const issTx = transactionStore.get(tx.linkedIssuanceSessionId);
+        const extractedGiven = verificationResult.claims?.given_name || verificationResult.claims?.first_name || 'Erika';
+        const extractedFamily = verificationResult.claims?.family_name || verificationResult.claims?.last_name || 'Mustermann';
+
+        console.log(`[RP Server] 🎯 PID-Präsentation verifiziert! Extrahierte Namen für EAA-Ausstellung: ${extractedGiven} ${extractedFamily}`);
+
+        const mergedClaims = {
+          ...(issTx.claims || {}),
+          given_name: extractedGiven,
+          family_name: extractedFamily
+        };
+
+        issTx.claims = mergedClaims;
+        issTx.status = 'READY_FOR_ISSUANCE';
+
+        const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
+        const configId = 'Employee_ID_SD_JWT_VC';
+        const offerObj = {
+          credential_issuer: issuerUrl,
+          credential_configuration_ids: [configId],
+          grants: {
+            "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
+              "pre-authorized_code": tx.linkedIssuanceSessionId,
+              "user_pin_required": false
+            }
+          }
+        };
+
+        issTx.credentialOfferUrl = `openid-credential-offer://?credential_offer=${encodeURIComponent(JSON.stringify(offerObj))}`;
+        issTx.qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(issTx.credentialOfferUrl)}`;
+
+        transactionStore.set(tx.linkedIssuanceSessionId, issTx);
+        console.log(`[RP] ✅ EAA credential offer for session "${tx.linkedIssuanceSessionId}" with name "${extractedGiven} ${extractedFamily}" has been prepared`);
+      }
+
       res.status(200).json({
         redirect_uri: `${RP_CONFIG.publicUrl}/login-success.html?sid=${state}&code=${responseCode}`
       });
@@ -1445,7 +1483,7 @@ app.get('/api/presentation/status', (req, res) => {
 });
 
 // =============================================================================
-// ISSUANCE SZENARIO ENDPOINTS
+// ISSUANCE SCENARIO ENDPOINTS
 // =============================================================================
 
 app.get('/api/issuance/scenarios', (req, res) => {
@@ -1524,6 +1562,45 @@ app.all('/api/issuance/initiate', (req, res) => {
   // load claims from active scenario if no user-defined claims are present in the request
   const scenarioClaims = activeIssuanceScenario?.defaultClaims || activeIssuanceScenario?.claims || null;
   const effectiveClaims = customClaims || scenarioClaims;
+
+  // chained flow (PID presentation -> EAA issuance)
+  if (activeIssuanceScenario?.flow === 'presentation_required' && !req.body?.from_presentation_sid) {
+    const pidSessionId = 'session_pid_req_' + crypto.randomBytes(12).toString('hex');
+    const pidNonce = 'nonce_pid_' + crypto.randomBytes(16).toString('hex');
+
+    transactionStore.set(pidSessionId, {
+      type: 'PRESENTATION',
+      nonce: pidNonce,
+      status: 'PENDING',
+      linkedIssuanceSessionId: sessionId
+    });
+
+    transactionStore.set(sessionId, {
+      type: 'ISSUANCE',
+      wiaChallenge: wiaChallenge,
+      status: 'WAITING_FOR_PID_PRESENTATION',
+      claims: effectiveClaims,
+      validityDays: customValidityDays,
+      format: format,
+      pidSessionId: pidSessionId
+    });
+
+    const requestUri = `${RP_CONFIG.publicUrl}/api/presentation/request-jwt?sid=${pidSessionId}`;
+    const presentationUrl = `openid4vp://?client_id=${encodeURIComponent(RP_CONFIG.clientId)}&request_uri=${encodeURIComponent(requestUri)}`;
+
+    console.log(`[ISS] chained issuance (PID -> EAA); PID session: ${pidSessionId}, issuance session: ${sessionId}`);
+
+    return res.json({
+      success: true,
+      flow: 'presentation_required',
+      sessionId: sessionId,
+      pidSessionId: pidSessionId,
+      credentialOfferUrl: presentationUrl,
+      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(presentationUrl)}`,
+      pollEndpoint: `/api/issuance/status?sid=${sessionId}`,
+      message: 'PID presentation required; please authenticate first using the PID'
+    });
+  }
 
   transactionStore.set(sessionId, {
     type: 'ISSUANCE',
@@ -1845,12 +1922,12 @@ app.get("/api/issuance/authorize", (req, res) => {
             <div class="logo">
                 <div class="logo-icon">🔐</div>
                 <div>
-                    <strong style="font-size: 0.95rem;">EUDI Issuer Identity</strong><br>
-                    <span style="font-size: 0.75rem; color: #64748b;">Authorization Code Flow</span>
+                    <strong style="font-size: 0.95rem;">VeriFire 🔥</strong><br>
+                    <span style="font-size: 0.75rem; color: #64748b;">Authorization Code Flow Test</span>
                 </div>
             </div>
-            <h2>Einmalpasswort (OTP) eingeben</h2>
-            <p>Zur Authentifizierung Ihrer Identität vor der Nachweisausstellung geben Sie bitte den 6-stelligen OTP-Code ein.</p>
+            <h2>OTP Prompt</h2>
+            <p>Please enter your 6-digit OTP code</p>
             <form action="/api/issuance/authorize/verify" method="POST">
                 <input type="hidden" name="redirect_uri" value="${encodeURIComponent(redirect_uri || '')}">
                 <input type="hidden" name="state" value="${encodeURIComponent(state || '')}">
@@ -1858,10 +1935,10 @@ app.get("/api/issuance/authorize", (req, res) => {
                 <input type="hidden" name="code_challenge" value="${encodeURIComponent(code_challenge || '')}">
                 <input type="hidden" name="code_challenge_method" value="${encodeURIComponent(code_challenge_method || '')}">
                 <div class="form-group">
-                    <label for="otp">Test-OTP (Voreingestellt: 123456)</label>
+                    <label for="otp">Test OTP (Default: 123456)</label>
                     <input type="text" id="otp" name="otp" value="123456" maxlength="6" required placeholder="123456">
                 </div>
-                <button type="submit" class="btn-submit">Authentifizieren & Wallet freigeben</button>
+                <button type="submit" class="btn-submit">Authenticate</button>
             </form>
             <div class="hint">OpenID4VCI Authorization Code Grant</div>
         </div>
@@ -2298,6 +2375,94 @@ app.post('/api/issuance/credential', (req, res) => {
   res.status(400).json({
     error: "invalid_proof",
     error_description: credResult.errors.join(", ")
+  });
+});
+
+// =============================================================================
+// ENDPOINTS FOR PID → EAA COUPLING (PID verification + EAA issuance)
+// =============================================================================
+
+app.get('/api/issuance/status', (req, res) => {
+  const sessionId = req.query.sid;
+  if (!sessionId || !transactionStore.has(sessionId)) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+  const tx = transactionStore.get(sessionId);
+  res.json({
+    status: tx.status,
+    sessionId: sessionId,
+    claims: tx.claims,
+    credentialOfferUrl: tx.credentialOfferUrl || null,
+    qrCodeUrl: tx.qrCodeUrl || null,
+    pidSessionId: tx.pidSessionId || null,
+    message: tx.status === 'READY_FOR_ISSUANCE'
+      ? `PID verification successful; first name: "${tx.claims?.given_name}", last name: "${tx.claims?.family_name}"; employee badge is ready for retrieval`
+      : (tx.status === 'WAITING_FOR_PID_PRESENTATION' ? 'Awaiting PID presentation...' : 'Session active')
+  });
+});
+
+app.post('/api/issuance/link-pid-presentation', (req, res) => {
+  const { presentationSid, scenarioId } = req.body || {};
+  if (!presentationSid || !transactionStore.has(presentationSid)) {
+    return res.status(400).json({ success: false, error: 'Presentation session not found' });
+  }
+  const pTx = transactionStore.get(presentationSid);
+  if (pTx.status !== 'SUCCESS' || !pTx.claims) {
+    return res.status(400).json({ success: false, error: 'Presentation session has not been successfully completed yet' });
+  }
+
+  const given_name = pTx.claims.given_name || pTx.claims.first_name || 'Erika';
+  const family_name = pTx.claims.family_name || pTx.claims.last_name || 'Mustermann';
+
+  const sessionId = 'session_iss_' + crypto.randomBytes(12).toString('hex');
+  const wiaChallenge = 'challenge_iss_' + crypto.randomBytes(16).toString('hex');
+
+  const defaultClaims = activeIssuanceScenario?.defaultClaims || {
+    employee_id: 'EMP-2026-7788',
+    department: 'Identity & Access Management',
+    role: 'Lead Security Architect',
+    country: 'DE',
+    vct: 'urn:company:employee_id:1'
+  };
+
+  const finalClaims = {
+    ...defaultClaims,
+    given_name: given_name,
+    family_name: family_name
+  };
+
+  transactionStore.set(sessionId, {
+    type: 'ISSUANCE',
+    wiaChallenge: wiaChallenge,
+    status: 'PENDING',
+    claims: finalClaims,
+    validityDays: 90,
+    format: 'dc+sd-jwt'
+  });
+
+  const issuerUrl = `${ISSUER_CONFIG.publicUrl}/api/issuance`;
+  const offerObj = {
+    credential_issuer: issuerUrl,
+    credential_configuration_ids: ['Employee_ID_SD_JWT_VC'],
+    grants: {
+      "urn:ietf:params:oauth:grant-type:pre-authorized_code": {
+        "pre-authorized_code": sessionId,
+        "user_pin_required": false
+      }
+    }
+  };
+
+  const offerUrl = `openid-credential-offer://?credential_offer=${encodeURIComponent(JSON.stringify(offerObj))}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(offerUrl)}`;
+
+  console.log(`[ISS] ✅ EAA issuance session generated from PID presentation; name: ${given_name} ${family_name}, session: ${sessionId}`);
+
+  res.json({
+    success: true,
+    sessionId: sessionId,
+    extractedClaims: { given_name, family_name },
+    credentialOfferUrl: offerUrl,
+    qrCodeUrl: qrCodeUrl
   });
 });
 
