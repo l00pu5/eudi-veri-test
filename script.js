@@ -213,15 +213,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 function switchTab(tabId) {
-  // Reset active tab button
+  // reset active tab button
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.getElementById('tab-btn-' + tabId).classList.add('active');
 
-  // Reset active tab content
+  // reset active tab content
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
   document.getElementById('tab-content-' + tabId).classList.add('active');
 
-  // Clean up shared areas
+  // clean up shared areas
   document.getElementById('qr-container').classList.add('hidden');
   document.getElementById('status-container').classList.add('hidden');
   if (pollInterval) {
@@ -302,25 +302,42 @@ function startIssuance() {
         }
 
         // display session ID
-        document.getElementById('session-title-label').innerText = "Employee ID Session ID";
+        document.getElementById('session-title-label').innerText = "Employee Badge Card Session ID";
         document.getElementById('session-id-display').innerText = data.sessionId;
 
         document.getElementById('qr-container').classList.remove('hidden');
-        document.getElementById('status-text').innerText = "Awaiting for wallet coupling (issuance)...";
+        document.getElementById('status-text').innerText = "Awaiting wallet coupling (issuance)...";
 
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(() => {
-          fetch(`/api/presentation/status?sid=${data.sessionId}`)
+          const pollUrl = data.pollEndpoint || `/api/issuance/status?sid=${data.sessionId}`;
+          fetch(pollUrl)
             .then(r => r.json())
             .then(statusData => {
-              if (statusData.status === 'SUCCESS') {
+              if (statusData.status === 'READY_FOR_ISSUANCE') {
+                // PID presentation was successful -> switch to issuance QR code
+                if (statusData.qrCodeUrl) {
+                  document.getElementById('qr-image').src = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(statusData.credentialOfferUrl);
+                  document.getElementById('qr-text').innerText = statusData.credentialOfferUrl;
+
+                  const sameDevBtn = document.getElementById('same-device-btn');
+                  if (sameDevBtn) {
+                    sameDevBtn.href = statusData.credentialOfferUrl;
+                  }
+                }
+                const gName = statusData.claims?.given_name || '';
+                const fName = statusData.claims?.family_name || '';
+                document.getElementById('status-text').innerText = `✅ PID verified (${gName} ${fName})! Importing ID in wallet now...`;
+              } else if (statusData.status === 'SUCCESS') {
                 clearInterval(pollInterval);
                 document.getElementById('status-container').classList.add('hidden');
-                alert("Employee Card (EAA) issued successfully to wallet!");
+                const gName = statusData.claims?.given_name || '';
+                const fName = statusData.claims?.family_name || '';
+                alert(`Employee Badge (EAA) for ${gName} ${fName} successfully issued to wallet`);
                 resetUI();
               } else if (statusData.status === 'FAILED') {
                 clearInterval(pollInterval);
-                alert("Issuance has failed: " + statusData.errors.join(", "));
+                alert("Issuance/verification has failed: " + (statusData.errors ? statusData.errors.join(", ") : "Error"));
                 resetUI();
               }
             })
@@ -333,7 +350,7 @@ function startIssuance() {
     })
     .catch(err => {
       console.error(err);
-      alert("Connection to server has failed");
+      alert("Connection error to server");
       resetUI();
     });
 }
@@ -394,7 +411,7 @@ function startOnboarding() {
 
         document.getElementById('qr-container').classList.remove('hidden');
 
-        // initite polling
+        // initiate polling
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = setInterval(() => pollSession(data.pollEndpoint), 2000);
       } else {
